@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox alignment="center" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cloud.client.ClientController">
+    <MenuBar>
+        <Menu text="File">
+            <MenuItem onAction="#exitAction" text="Exit" />
+        </Menu>
+    </MenuBar>
+
+    <HBox VBox.vgrow="ALWAYS">
+
+        <!--Server part-->
+        <fx:include source="server.fxml" HBox.hgrow="ALWAYS" />
+
+        <!--Client part-->
+        <VBox alignment="CENTER" spacing="5">
+            <Button rotate="-90" text="^" VBox.vgrow="ALWAYS" />
+            <Button rotate="90" text="^" VBox.vgrow="ALWAYS" />
+         <padding>
+            <Insets bottom="5.0" left="5.0" right="5.0" top="57" />
+         </padding>
+        </VBox>
+
+        <VBox HBox.hgrow="ALWAYS">
+            <HBox>
+                <ComboBox fx:id="disks" onAction="#selectDisk"/>
+                <TextField fx:id="pathField" editable="false" HBox.hgrow="ALWAYS" />
+                <Button onAction="#toParentPathAction" text="Up" HBox.hgrow="ALWAYS" />
+                <Button text="+" HBox.hgrow="ALWAYS" onAction="#createNewFolderOrFile"/>
+            </HBox>
+            <TableView onMouseClicked="#selectDirectory" fx:id="fileTable" VBox.vgrow="ALWAYS"/>
+            <HBox spacing="5">
+                <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#copyFile"/>
+                <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#pasteFile"/>
+                <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#moveFile"/>
+                <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#renameFile"/>
+                <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#deleteFile"/>
+            <padding>
+               <Insets bottom="5.0" top="5.0" />
+            </padding>
+            </HBox>
+        </VBox>
+    </HBox>
+   <padding>
+      <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+   </padding>
+</VBox>

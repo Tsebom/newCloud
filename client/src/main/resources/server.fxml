@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox alignment="CENTER" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cloud.client.ServerController">
+    <HBox>
+        <TextField editable="false" HBox.hgrow="ALWAYS" />
+        <Button text="Up" HBox.hgrow="ALWAYS" />
+        <Button text="+" HBox.hgrow="ALWAYS" />
+    </HBox>
+    <TableView VBox.vgrow="ALWAYS" />
+    <HBox spacing="5">
+        <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" />
+        <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" />
+        <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" />
+        <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" />
+        <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" />
+      <padding>
+         <Insets bottom="5.0" top="5.0" />
+      </padding>
+    </HBox>
+</VBox>
