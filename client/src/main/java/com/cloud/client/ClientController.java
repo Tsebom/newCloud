@@ -13,7 +13,9 @@ import javafx.scene.input.MouseEvent;
 import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URL;
+import java.nio.channels.SocketChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.format.DateTimeFormatter;
@@ -125,7 +127,6 @@ public class ClientController implements Initializable {
                 updateFileTable(path);
             }
         }
-
     }
 
     public void copyFile(ActionEvent actionEvent) {
@@ -135,6 +136,7 @@ public class ClientController implements Initializable {
 
     public short pasteFile(ActionEvent actionEvent) {
         Path path = Paths.get(pathField.getText());
+
         if (!Files.isDirectory(selectedFilePathForCopy)) {
             try {
                 //if file is exist
@@ -222,19 +224,20 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
-    private List<Path> walkDirectory(Path path) {
-        List<Path> list = new ArrayList<>();
-        try {
-            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    list.addAll(Files.list(dir).collect(Collectors.toList()));
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return list;
-    }
+
+//    private List<Path> walkDirectory(Path path) {
+//        List<Path> list = new ArrayList<>();
+//        try {
+//            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+//                @Override
+//                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+//                    list.addAll(Files.list(dir).collect(Collectors.toList()));
+//                    return FileVisitResult.CONTINUE;
+//                }
+//            });
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        return list;
+//    }
 }

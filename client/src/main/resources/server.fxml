@@ -10,7 +10,7 @@
         <Button text="Up" HBox.hgrow="ALWAYS" />
         <Button text="+" HBox.hgrow="ALWAYS" />
     </HBox>
-    <TableView VBox.vgrow="ALWAYS" />
+    <TableView VBox.vgrow="ALWAYS" fx:id="fileTable"/>
     <HBox spacing="5">
         <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" />
         <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" />
