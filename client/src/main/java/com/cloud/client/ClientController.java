@@ -5,9 +5,15 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseEvent;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 
 import javax.swing.*;
@@ -35,8 +41,14 @@ public class ClientController implements Initializable {
 
     private Path selectedFilePathForCopy;
 
+    private Stage regStage;
+    private RegController regController;
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        initRegWindow();
+        regStage.show();
+
         Path path = Paths.get(".");
 
         TableColumn<FileInfo, String> nameFileColumn = new TableColumn<>("Name");
@@ -80,6 +92,24 @@ public class ClientController implements Initializable {
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
+    }
+
+    private void initRegWindow() {
+        try {
+            FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/reg.fxml"));
+            Parent root = fxmlLoader.load();
+            regStage = new Stage();
+            regStage.setTitle("Registration");
+            regStage.setScene(new Scene(root, 400, 350));
+
+            regStage.initModality(Modality.APPLICATION_MODAL);
+            regStage.initStyle(StageStyle.UTILITY);
+
+            regController = fxmlLoader.getController();
+            regController.setController(this);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void fillDiskList() {
