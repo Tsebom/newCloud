@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox fx:controller="com.cloud.client.RegController"
-      xmlns:fx="http://javafx.com/fxml" alignment="center" >
-
-    <TextField fx:id="loginField"  promptText="login" />
-    <PasswordField fx:id="passwordField"  promptText="password"/>
-    <TextField fx:id="nickField"  promptText="nickname" />
-    <TextArea fx:id="textArea" VBox.vgrow="ALWAYS"/>
-    <Button text="Registration"  minWidth="100" onAction="#tryToReg"/>
-</VBox>
+<HBox alignment="center" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cloud.client.RegController">
+    <VBox spacing="5" HBox.hgrow="ALWAYS">
+        <TextField fx:id="loginField" alignment="TOP_CENTER" promptText="login" />
+        <PasswordField fx:id="passwordField" alignment="TOP_CENTER" promptText="password" />
+        <HBox spacing="5" VBox.vgrow="ALWAYS">
+            <Button fx:id="sign_in" text="Sign in" focusTraversable="false" maxWidth="Infinity"
+                    HBox.hgrow="ALWAYS" visible="true" managed="true" onAction="#signIn"/>
+            <Button fx:id="sign_up" text="Sign up" focusTraversable="false" maxWidth="Infinity"
+                    HBox.hgrow="ALWAYS" visible="true" managed="true" onAction="#signUp"/>
+            <Button fx:id="registration" text="Registration" focusTraversable="false" maxWidth="Infinity"
+                    HBox.hgrow="ALWAYS" visible="false" managed="false" onAction="#registration"/>
+        </HBox>
+    </VBox>
+   <padding>
+      <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+   </padding>
+</HBox>

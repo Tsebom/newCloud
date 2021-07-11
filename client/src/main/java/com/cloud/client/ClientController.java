@@ -41,14 +41,11 @@ public class ClientController implements Initializable {
 
     private Path selectedFilePathForCopy;
 
-    private Stage regStage;
+    private Stage clientStage;
     private RegController regController;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        initRegWindow();
-        regStage.show();
-
         Path path = Paths.get(".");
 
         TableColumn<FileInfo, String> nameFileColumn = new TableColumn<>("Name");
@@ -92,32 +89,6 @@ public class ClientController implements Initializable {
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
-    }
-
-    private void initRegWindow() {
-        try {
-            FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/reg.fxml"));
-            Parent root = fxmlLoader.load();
-            regStage = new Stage();
-            regStage.setTitle("Registration");
-            regStage.setScene(new Scene(root, 400, 350));
-
-            regStage.initModality(Modality.APPLICATION_MODAL);
-            regStage.initStyle(StageStyle.UTILITY);
-
-            regController = fxmlLoader.getController();
-            regController.setController(this);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void fillDiskList() {
-        disks.getItems().clear();
-        for (Path path : FileSystems.getDefault().getRootDirectories()) {
-            disks.getItems().add(path.toString());
-        }
-        disks.getSelectionModel().select(0);
     }
 
     public void updateFileTable (Path path) {
@@ -254,6 +225,13 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
+    private void fillDiskList() {
+        disks.getItems().clear();
+        for (Path path : FileSystems.getDefault().getRootDirectories()) {
+            disks.getItems().add(path.toString());
+        }
+        disks.getSelectionModel().select(0);
+    }
 
 //    private List<Path> walkDirectory(Path path) {
 //        List<Path> list = new ArrayList<>();
