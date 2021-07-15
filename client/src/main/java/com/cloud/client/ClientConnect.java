@@ -1,9 +1,6 @@
 package com.cloud.client;
 
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
+import javafx.application.Platform;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -35,12 +32,16 @@ public class ClientConnect implements Runnable{
     private SocketChannel channel;
     private SocketAddress serverAddress;
 
+    private ServerController serverController;
+
     private BlockingQueue<String> queue = new LinkedBlockingQueue<>();
     private ByteBuffer buffer = ByteBuffer.allocate(1460);
     private String command;
+    private boolean breakeClientConnect;
 
     private ClientConnect() {
         instance = this;
+        breakeClientConnect = false;
         logger.info("client instance created");
         try {
             logmanager.readConfiguration(new FileInputStream("client/logging.properties"));
@@ -61,6 +62,9 @@ public class ClientConnect implements Runnable{
     public void run() {
         try {
             while (true) {
+                if (breakeClientConnect) {
+                    break;
+                }
                 selector.select();
                 Set<SelectionKey> keys = selector.selectedKeys();
                 Iterator<SelectionKey> iterator = keys.iterator();
@@ -73,14 +77,15 @@ public class ClientConnect implements Runnable{
                     }
                     if (key.isWritable()) {
                         String line = queue.poll();
-                        logger.info("send command to the server: " + line);
                         if (line != null) {
+                            logger.info("send command to the server: " + line);
                             channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
+                            key.interestOps(SelectionKey.OP_READ);
                         }
-                        key.interestOps(SelectionKey.OP_READ);
                     }
                     if (key.isReadable()) {
                         readChanel();
+                        key.interestOps(SelectionKey.OP_WRITE);
                     }
                     iterator.remove();
                 }
@@ -99,6 +104,10 @@ public class ClientConnect implements Runnable{
 
     public BlockingQueue<String> getQueue() {
         return queue;
+    }
+
+    public void setServerController(ServerController serverController) {
+        this.serverController = serverController;
     }
 
     public void readChanel() {
@@ -121,6 +130,7 @@ public class ClientConnect implements Runnable{
 
             command = sb.toString();
             logger.info("the end read data from the channel: " + serverAddress);
+            logger.info(command);
             processingCommand(command);
 
         } catch (IOException e) {
@@ -131,11 +141,28 @@ public class ClientConnect implements Runnable{
     private void processingCommand(String command) {
         if (command.equals("auth_ok")) {
             logger.info("authorization has been confirmed");
-
-        }
-        if (command.equals("reg_ok")) {
+            serverController.switchServerWindow(serverController.isRegistration());
+        } else if (command.equals("reg_ok")) {
             logger.info("registration has been confirmed");
-
+            serverController.switchServerWindow(serverController.isRegistration());
+        } else if (command.equals("disconnect")) {
+            logger.info(command);
+            breakeClientConnect = true;
+            Platform.exit();
+        }
+        //warning about fail
+        if (command.startsWith("alert")) {
+            logger.info("alert");
+            if (command.startsWith("alert_fail_reg")) {
+                Platform.runLater(() -> ClientController.
+                        alertWarning(command.replace("alert_fail_reg ", "")));
+            } else if (command.startsWith("alert_fail_auth")) {
+                Platform.runLater(() -> ClientController.
+                        alertWarning(command.replace("alert_fail_auth ", "")));
+            } else if (command.startsWith("alert_fail_data")) {
+                Platform.runLater(() -> ClientController.
+                        alertWarning(command.replace("alert_fail_data ", "")));
+            }
         }
     }
 }

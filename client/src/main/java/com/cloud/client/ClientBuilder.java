@@ -10,10 +10,9 @@ public class ClientBuilder extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception{
-        Parent root = FXMLLoader.load(getClass().getResource("/reg.fxml"));
+        Parent root = FXMLLoader.load(getClass().getResource("/client.fxml"));
         primaryStage.setTitle("Cloud Authorization");
-        primaryStage.setScene(new Scene(root, 300, 98));
-        RegController.setStage(primaryStage);
+        primaryStage.setScene(new Scene(root, 1400, 800));
         primaryStage.show();
     }
 

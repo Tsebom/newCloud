@@ -38,22 +38,25 @@ public class DataBaseAuthService implements AuthService{
         try {
             result = server.getStatement().executeQuery(String.format("SELECT * FROM UsersOFAuthorization " +
                     "WHERE login = '%s' AND password = '%s'", login, password));
-            if (result.next()) {
+            if (result.next() && result != null) {
                 return true;
-//                try {
-//                    server.getAddUser().setString(1, login);
-//                    server.getAddUser().setString(2, password);
-//                    server.getAddUser().setString(3, login);
-//                    server.getAddUser().executeUpdate();
-//                    return true;
-//                } catch (SQLException e) {
-//                    e.printStackTrace();
-//                }
+//
             }
         }catch (SQLException e) {
             e.printStackTrace();
         }
-        logger.info("false");
         return false;
+    }
+
+    @Override
+    public void setRegistration(String login, String password) {
+        try {
+            server.getAddUser().setString(1, login);
+            server.getAddUser().setString(2, password);
+            server.getAddUser().setString(3, login);
+            server.getAddUser().executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }

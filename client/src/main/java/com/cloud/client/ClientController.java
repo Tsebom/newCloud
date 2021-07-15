@@ -39,10 +39,8 @@ public class ClientController implements Initializable {
     @FXML
     TableView fileTable;
 
+    private ClientConnect connect;
     private Path selectedFilePathForCopy;
-
-    private Stage clientStage;
-    private RegController regController;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -91,6 +89,11 @@ public class ClientController implements Initializable {
         fileTable.getSortOrder().add(nameFileColumn);
     }
 
+    public static void alertWarning(String warning) {
+        Alert alert = new Alert(Alert.AlertType.WARNING, warning, ButtonType.OK);
+        alert.showAndWait();
+    }
+
     public void updateFileTable (Path path) {
         try {
             pathField.setText(path.normalize().toAbsolutePath().toString());
@@ -104,7 +107,9 @@ public class ClientController implements Initializable {
     }
 
     public void exitAction(ActionEvent actionEvent) {
-        Platform.exit();
+        connect = ClientConnect.getInstance();
+        connect.getQueue().add("disconnect");
+        //Platform.exit();
     }
 
 
@@ -231,6 +236,12 @@ public class ClientController implements Initializable {
             disks.getItems().add(path.toString());
         }
         disks.getSelectionModel().select(0);
+    }
+
+    public void regButton(ActionEvent actionEvent) {
+    }
+
+    public void authButton(ActionEvent actionEvent) {
     }
 
 //    private List<Path> walkDirectory(Path path) {

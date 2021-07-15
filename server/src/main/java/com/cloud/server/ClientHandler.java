@@ -34,7 +34,7 @@ public class ClientHandler {
         }
     }
 
-    public void readChanel() {
+    public void read() {
         logger.info("the start reading data from the channel: " + clientAddress);
         try {
             int bytesRead = channel.read(buffer);

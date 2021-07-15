@@ -5,20 +5,46 @@
 <?import javafx.scene.layout.*?>
 
 <VBox alignment="CENTER" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cloud.client.ServerController">
-    <HBox>
-        <TextField editable="false" HBox.hgrow="ALWAYS" />
-        <Button text="Up" HBox.hgrow="ALWAYS" />
-        <Button text="+" HBox.hgrow="ALWAYS" />
-    </HBox>
-    <TableView VBox.vgrow="ALWAYS" fx:id="fileTable"/>
-    <HBox spacing="5">
-        <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" />
-        <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" />
-        <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" />
-        <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" />
-        <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" />
-      <padding>
-         <Insets bottom="5.0" top="5.0" />
-      </padding>
-    </HBox>
+    <VBox fx:id="manager_box" visible="false" managed="false" VBox.vgrow="ALWAYS">
+        <HBox>
+            <TextField editable="false" HBox.hgrow="ALWAYS" />
+            <Button text="Up" HBox.hgrow="ALWAYS" />
+            <Button text="+" HBox.hgrow="ALWAYS" />
+        </HBox>
+        <TableView VBox.vgrow="ALWAYS" fx:id="fileTable"/>
+        <HBox spacing="5">
+            <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" />
+            <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" />
+            <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" />
+            <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" />
+            <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" />
+            <padding>
+                <Insets bottom="5.0" top="5.0" />
+            </padding>
+        </HBox>
+    </VBox>
+
+
+    <VBox fx:id="auth_box" visible="true" managed="true" spacing="5" VBox.vgrow="ALWAYS">
+        <TextField fx:id="loginField" alignment="TOP_CENTER" promptText="login" />
+        <PasswordField fx:id="passwordField" alignment="TOP_CENTER" promptText="password" />
+        <HBox spacing="5" VBox.vgrow="ALWAYS">
+            <Button fx:id="sign_in" text="Sign in" focusTraversable="false" maxWidth="Infinity"
+                    HBox.hgrow="ALWAYS" visible="true" managed="true" onAction="#signIn"/>
+            <Button fx:id="sign_up" text="Sign up" focusTraversable="false" maxWidth="Infinity"
+                    HBox.hgrow="ALWAYS" visible="true" managed="true" onAction="#signUp"/>
+            <Button fx:id="back_sign_in" text="Sign in" focusTraversable="false" maxWidth="Infinity"
+                    HBox.hgrow="ALWAYS" visible="false" managed="false" onAction="#signIn"/>
+            <Button fx:id="registration" text="Registration" focusTraversable="false" maxWidth="Infinity"
+                    HBox.hgrow="ALWAYS" visible="false" managed="false" onAction="#registration"/>
+
+        </HBox>
+        <padding>
+            <Insets bottom="5.0" top="5.0" />
+        </padding>
+    </VBox>
 </VBox>
+
+
+
+

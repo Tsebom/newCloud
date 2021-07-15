@@ -16,4 +16,6 @@ public interface AuthService {
      * @return - true if the user was registered and false if not
      */
     boolean isRegistration(String login, String password);
+
+    void setRegistration(String login, String password);
 }
