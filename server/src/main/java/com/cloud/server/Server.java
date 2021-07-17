@@ -9,10 +9,7 @@ import java.nio.channels.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -43,6 +40,7 @@ public class Server {
     //list connected users
     private Map<SocketAddress, ClientHandler> mapAuthUser = new HashMap<>();
     private Map<SocketAddress, AcceptHandler> mapRequestAuthUser = new HashMap<>();
+    private Set<SocketAddress> processing = Collections.synchronizedSet(new HashSet<>());
 
     public Server() {
         try {
@@ -75,19 +73,17 @@ public class Server {
                         SocketAddress socket = ((SocketChannel) key.channel()).getRemoteAddress();
                         logger.info("readable event from " + socket);
 
-                        if (mapRequestAuthUser.containsKey(socket)) {
+                        if (mapRequestAuthUser.containsKey(socket) && !processing.contains(socket)) {
+
                             service.execute(() -> {
                                 mapRequestAuthUser.get(socket).readChanel();
                             });
+                            processing.add(socket);
                         }
                         if (mapAuthUser.containsKey(socket)) {
-//                            service.execute(() -> {
-//                                try {
-//                                    mapAuthUser.get(socket.getRemoteAddress()).read();
-//                                } catch (IOException e) {
-//                                    e.printStackTrace();
-//                                }
-//                            });
+                            service.execute(() -> {
+                                mapAuthUser.get(socket).read();
+                            });
                         }
                     }
                     iterator.remove();
@@ -120,6 +116,10 @@ public class Server {
 
     public Map<SocketAddress, ClientHandler> getMapAuthUser() {
         return mapAuthUser;
+    }
+
+    public Set<SocketAddress> getProcessing() {
+        return processing;
     }
 
     public Path getRoot() {

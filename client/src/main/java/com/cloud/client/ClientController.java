@@ -14,6 +14,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.stage.WindowEvent;
 
 
 import javax.swing.*;
@@ -39,12 +40,15 @@ public class ClientController implements Initializable {
     @FXML
     TableView fileTable;
 
+    private static Stage stage;
+
     private ClientConnect connect;
+    private Path root;
     private Path selectedFilePathForCopy;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        Path path = Paths.get(".");
+        root = Paths.get(".");
 
         TableColumn<FileInfo, String> nameFileColumn = new TableColumn<>("Name");
         nameFileColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFilename()));
@@ -66,27 +70,40 @@ public class ClientController implements Initializable {
             return new TableCell<FileInfo, Long>() {
                 @Override
                 protected void updateItem(Long item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (item == null || empty) {
-                        setText(null);
-                        setStyle("");
-                    } else {
-                        String text = String.format("%,d bytes", item);
-                        if (item == -1L) {
-                            text = "[DIR]";
-                        }
-                        setText(text);
+                super.updateItem(item, empty);
+                if (item == null || empty) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    String text = String.format("%,d bytes", item);
+                    if (item == -1L) {
+                        text = "[DIR]";
                     }
+                    setText(text);
+                }
                 }
             };
         });
 
         fillDiskList();
 
-        updateFileTable(path);
+        updateFileTable(root);
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
+
+        Platform.runLater(() -> {
+            stage.setOnCloseRequest((event) -> {
+                if (connect == null) {
+                    connect = ClientConnect.getInstance();
+                }
+                connect.getQueue().add("disconnect");
+            });
+        });
+    }
+
+    public static void setStage(Stage stage) {
+        ClientController.stage = stage;
     }
 
     public static void alertWarning(String warning) {
@@ -107,9 +124,10 @@ public class ClientController implements Initializable {
     }
 
     public void exitAction(ActionEvent actionEvent) {
-        connect = ClientConnect.getInstance();
+        if (connect == null) {
+            connect = ClientConnect.getInstance();
+        }
         connect.getQueue().add("disconnect");
-        //Platform.exit();
     }
 
 

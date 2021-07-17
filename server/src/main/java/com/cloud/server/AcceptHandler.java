@@ -41,7 +41,7 @@ public class AcceptHandler implements Runnable {
             channel.register(selector, SelectionKey.OP_READ);
             clientAddress = channel.getRemoteAddress();
             logger.info("client has connected: " + clientAddress);
-            server.getMapRequestAuthUser().put(channel.getRemoteAddress(), this);
+            server.getMapRequestAuthUser().put(clientAddress, this);
             logger.info("create AcceptHandler: " + clientAddress);
         } catch (ClosedChannelException e) {
             logger.log(Level.WARNING, "connect has failed: " + clientAddress, e);
@@ -63,9 +63,7 @@ public class AcceptHandler implements Runnable {
                         if (token.length < 3) {
                             //disconnect
                             if (command.equals("disconnect")) {
-                                channel.write(ByteBuffer.wrap("disconnect".getBytes(StandardCharsets.UTF_8)));
                                 channel.close();
-                                logger.info("client " + clientAddress + " has disconnected");
                                 break;
                             }
 
@@ -124,7 +122,7 @@ public class AcceptHandler implements Runnable {
     /**
      *
      */
-    public synchronized void readChanel() {
+    public void readChanel() {
         if (channel.isOpen()) {
             logger.info("the start reading data from the channel: " + clientAddress);
             try {
@@ -144,8 +142,8 @@ public class AcceptHandler implements Runnable {
                 buffer.clear();
                 logger.info("the end read data from the channel: " + clientAddress);
 
-                notify();
                 newCommand(sb.toString());
+                server.getProcessing().remove(clientAddress);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -172,6 +170,19 @@ public class AcceptHandler implements Runnable {
      */
     private synchronized void newCommand(String message) {
         command = message;
+        if (command.equals("disconnect")) {
+            breakConnect();
+        }
         notify();
+    }
+
+    private void breakConnect() {
+        try {
+            channel.write(ByteBuffer.wrap("disconnect".getBytes(StandardCharsets.UTF_8)));
+            channel.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 }

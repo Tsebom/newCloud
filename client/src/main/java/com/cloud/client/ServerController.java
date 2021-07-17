@@ -1,5 +1,6 @@
 package com.cloud.client;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
@@ -9,20 +10,25 @@ import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
 
 public class ServerController implements Initializable {
     private static final int PORT = 5679;
     private static final String IP_ADRESS = "localhost";
+    private static Stage stage;
 
-    private Stage stage;
     private ClientConnect connect;
+    private Path root;
 
-
+    @FXML
+    public TextField pathField;
     @FXML
     public VBox manager_box;
     @FXML
@@ -47,7 +53,7 @@ public class ServerController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        Path path = Paths.get(".");
+        root = Paths.get(".");
 
         TableColumn<FileInfo, String> nameFileColumn = new TableColumn<>("Name");
         nameFileColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFilename()));
@@ -84,10 +90,14 @@ public class ServerController implements Initializable {
             };
         });
 
-        updateFileTable(path);
+        updateFileTable(root);
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
+    }
+
+    public static void setStage(Stage stage) {
+        ServerController.stage = stage;
     }
 
     public boolean isRegistration() {
@@ -96,8 +106,7 @@ public class ServerController implements Initializable {
 
     public void signUp(ActionEvent actionEvent) {
         regOrAuth(isTryRegistration);
-        stage = (Stage) loginField.getScene().getWindow();
-        stage.setTitle("Cloud Registration");
+        setTitle("Cloud Registration");
     }
 
     public void registration(ActionEvent actionEvent) {
@@ -114,6 +123,12 @@ public class ServerController implements Initializable {
                 .concat(passwordField.getText().trim()));
     }
 
+    public void setTitle(String title) {
+        Platform.runLater(() -> {
+            stage.setTitle(title);
+        });
+    }
+
     protected void switchServerWindow(boolean isRegistration) {
         auth_box.setVisible(!isRegistration);
         auth_box.setManaged(!isRegistration);
@@ -123,7 +138,15 @@ public class ServerController implements Initializable {
     }
 
     private void updateFileTable(Path path) {
-
+        try {
+            pathField.setText(path.normalize().toAbsolutePath().toString());
+            fileTable.getItems().clear();
+            fileTable.getItems().addAll(Files.list(path).map(FileInfo::new).collect(Collectors.toList()));
+            fileTable.sort();
+        } catch (IOException e) {
+            Alert alert = new Alert(Alert.AlertType.WARNING, "Can not update the files list", ButtonType.OK);
+            alert.showAndWait();
+        }
     }
 
     private void regOrAuth (boolean isTryRegistration) {

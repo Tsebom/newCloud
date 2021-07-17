@@ -142,6 +142,8 @@ public class ClientConnect implements Runnable{
         if (command.equals("auth_ok")) {
             logger.info("authorization has been confirmed");
             serverController.switchServerWindow(serverController.isRegistration());
+            serverController.setTitle("Cloud");
+
         } else if (command.equals("reg_ok")) {
             logger.info("registration has been confirmed");
             serverController.switchServerWindow(serverController.isRegistration());

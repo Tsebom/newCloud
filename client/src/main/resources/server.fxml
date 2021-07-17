@@ -7,7 +7,7 @@
 <VBox alignment="CENTER" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cloud.client.ServerController">
     <VBox fx:id="manager_box" visible="false" managed="false" VBox.vgrow="ALWAYS">
         <HBox>
-            <TextField editable="false" HBox.hgrow="ALWAYS" />
+            <TextField fx:id="pathField" editable="false" HBox.hgrow="ALWAYS" />
             <Button text="Up" HBox.hgrow="ALWAYS" />
             <Button text="+" HBox.hgrow="ALWAYS" />
         </HBox>
