@@ -5,9 +5,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -37,9 +39,8 @@ public class Server {
 
     private AuthService authService;
 
-    //list connected users
-    private Map<SocketAddress, ClientHandler> mapAuthUser = new HashMap<>();
-    private Map<SocketAddress, AcceptHandler> mapRequestAuthUser = new HashMap<>();
+    private Map<SocketAddress, ClientHandler> mapAuthUser = Collections.synchronizedMap(new HashMap<>());
+    private Map<SocketAddress, AcceptHandler> mapRequestAuthUser = Collections.synchronizedMap(new HashMap<>());
     private Set<SocketAddress> processing = Collections.synchronizedSet(new HashSet<>());
 
     public Server() {
@@ -54,7 +55,7 @@ public class Server {
             server.configureBlocking(false);
 
             selector = Selector.open();
-            server.register(selector, SelectionKey.OP_ACCEPT);
+            server.register(selector, SelectionKey.OP_ACCEPT, ByteBuffer.allocate(1460));
             connectDataBase();
             logger.info("Server has started.");
             setAllPrepareStatement();
@@ -65,26 +66,28 @@ public class Server {
                 Iterator<SelectionKey> iterator = keys.iterator();
                 while (iterator.hasNext()) {
                     SelectionKey key = iterator.next();
-                    if (key.isAcceptable()) {
-                        logger.info("request accept");
-                        service.execute(new AcceptHandler(this, key));
-                    }
-                    if (key.isReadable()) {
-                        SocketAddress socket = ((SocketChannel) key.channel()).getRemoteAddress();
-                        logger.info("readable event from " + socket);
-
-                        if (mapRequestAuthUser.containsKey(socket) && !processing.contains(socket)) {
-
-                            service.execute(() -> {
-                                mapRequestAuthUser.get(socket).readChanel();
-                            });
-                            processing.add(socket);
+                    if (key.isValid()) {
+                        if (key.isAcceptable()) {
+                            logger.info("request accept");
+                            service.execute(new AcceptHandler(this, key));
                         }
-                        if (mapAuthUser.containsKey(socket)) {
-                            service.execute(() -> {
-                                mapAuthUser.get(socket).read();
-                            });
+                        if (key.isReadable()) {
+                            SocketAddress socket = ((SocketChannel) key.channel()).getRemoteAddress();
+                            if (mapAuthUser.containsKey(socket) && !processing.contains(socket)) {
+                                logger.info("readable event from " + socket);
+                                processing.add(socket);
+                                service.execute(() -> {
+                                    mapAuthUser.get(socket).read();
+                                });
+                            } else if (mapRequestAuthUser.containsKey(socket) && !processing.contains(socket)) {
+                                processing.add(socket);
+                                service.execute(() -> {
+                                    mapRequestAuthUser.get(socket).read();
+                                });
+                            }
                         }
+                    } else {
+                        logger.info(key + " is not valid");
                     }
                     iterator.remove();
                 }

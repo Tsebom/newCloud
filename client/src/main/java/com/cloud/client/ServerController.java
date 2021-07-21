@@ -1,5 +1,6 @@
 package com.cloud.client;
 
+import com.cloud.server.FileInfo;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -7,19 +8,24 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+import javax.swing.*;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.ResourceBundle;
-import java.util.stream.Collectors;
+import java.util.logging.Logger;
 
 public class ServerController implements Initializable {
+    private Logger logger = ClientConnect.logger;
+
     private static final int PORT = 5679;
     private static final String IP_ADRESS = "localhost";
     private static Stage stage;
@@ -53,8 +59,6 @@ public class ServerController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        root = Paths.get(".");
-
         TableColumn<FileInfo, String> nameFileColumn = new TableColumn<>("Name");
         nameFileColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFilename()));
         nameFileColumn.setPrefWidth(150);
@@ -90,8 +94,6 @@ public class ServerController implements Initializable {
             };
         });
 
-        updateFileTable(root);
-
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
     }
@@ -111,6 +113,7 @@ public class ServerController implements Initializable {
 
     public void registration(ActionEvent actionEvent) {
         connect = ClientConnect.getInstance();
+        connect.setNameUser(loginField.getText());
         connect.setServerController(this);
         connect.getQueue().add("reg ".concat(loginField.getText().trim() + " ")
                 .concat(passwordField.getText().trim()));
@@ -118,6 +121,7 @@ public class ServerController implements Initializable {
 
     public void signIn(ActionEvent actionEvent) {
         connect = ClientConnect.getInstance();
+        connect.setNameUser(loginField.getText());
         connect.setServerController(this);
         connect.getQueue().add("auth ".concat(loginField.getText().trim() + " ")
                 .concat(passwordField.getText().trim()));
@@ -137,16 +141,10 @@ public class ServerController implements Initializable {
         this.isRegistration = !isRegistration;
     }
 
-    private void updateFileTable(Path path) {
-        try {
-            pathField.setText(path.normalize().toAbsolutePath().toString());
+    public void updateFileTable(List<FileInfo> list) {
             fileTable.getItems().clear();
-            fileTable.getItems().addAll(Files.list(path).map(FileInfo::new).collect(Collectors.toList()));
+            fileTable.getItems().addAll(list);
             fileTable.sort();
-        } catch (IOException e) {
-            Alert alert = new Alert(Alert.AlertType.WARNING, "Can not update the files list", ButtonType.OK);
-            alert.showAndWait();
-        }
     }
 
     private void regOrAuth (boolean isTryRegistration) {
@@ -159,5 +157,28 @@ public class ServerController implements Initializable {
         back_sign_in.setVisible(!isTryRegistration);
         back_sign_in.setManaged(!isTryRegistration);
         this.isTryRegistration = !isTryRegistration;
+    }
+
+    public void createNewFolderOrFile(ActionEvent actionEvent) {
+        String name = JOptionPane.showInputDialog("Type the name folder");
+        if (name != null && !name.equals("")) {
+            if (name.contains(".")) {
+                connect.getQueue().add("create_file ".concat(name));
+            }
+            else {
+                connect.getQueue().add("create_dir ".concat(name));
+            }
+        }
+    }
+
+    public void selectDirectory(MouseEvent mouseEvent) {
+        if (mouseEvent.getClickCount() == 2) {
+            connect.getQueue().add("doubleclick ".concat(
+                    ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()));
+        }
+    }
+
+    public void toParentPathAction(ActionEvent actionEvent) {
+        connect.getQueue().add("back");
     }
 }

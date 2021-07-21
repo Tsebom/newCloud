@@ -8,10 +8,10 @@
     <VBox fx:id="manager_box" visible="false" managed="false" VBox.vgrow="ALWAYS">
         <HBox>
             <TextField fx:id="pathField" editable="false" HBox.hgrow="ALWAYS" />
-            <Button text="Up" HBox.hgrow="ALWAYS" />
-            <Button text="+" HBox.hgrow="ALWAYS" />
+            <Button text="Up" HBox.hgrow="ALWAYS" onAction="#toParentPathAction"/>
+            <Button text="+" HBox.hgrow="ALWAYS" onAction="#createNewFolderOrFile"/>
         </HBox>
-        <TableView VBox.vgrow="ALWAYS" fx:id="fileTable"/>
+        <TableView onMouseClicked="#selectDirectory" VBox.vgrow="ALWAYS" fx:id="fileTable"/>
         <HBox spacing="5">
             <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" />
             <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" />

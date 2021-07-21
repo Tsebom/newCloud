@@ -1,5 +1,6 @@
 package com.cloud.client;
 
+import com.cloud.server.FileInfo;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -254,12 +255,6 @@ public class ClientController implements Initializable {
             disks.getItems().add(path.toString());
         }
         disks.getSelectionModel().select(0);
-    }
-
-    public void regButton(ActionEvent actionEvent) {
-    }
-
-    public void authButton(ActionEvent actionEvent) {
     }
 
 //    private List<Path> walkDirectory(Path path) {

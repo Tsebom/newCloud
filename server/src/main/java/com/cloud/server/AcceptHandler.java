@@ -1,10 +1,11 @@
 package com.cloud.server;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -23,7 +24,6 @@ public class AcceptHandler implements Runnable {
     private SocketChannel channel;
     private SocketAddress clientAddress;
 
-    private ByteBuffer buffer = ByteBuffer.allocate(1460);
     private String command = "";
 
     /**
@@ -66,10 +66,7 @@ public class AcceptHandler implements Runnable {
                                 channel.close();
                                 break;
                             }
-
-                            logger.info("client " + clientAddress + " has sent incorrect data: " + command);
-                            channel.write(ByteBuffer.wrap("alert_fail_data The login or the password is not correct"
-                                    .getBytes(StandardCharsets.UTF_8)));
+                            sendData("alert_fail_data The login or the password is not correct");
                             command = "";
                             continue;
                         }
@@ -78,32 +75,30 @@ public class AcceptHandler implements Runnable {
                             logger.info("client " + clientAddress + " has requested authorization");
                             if (server.getAuthService().isRegistration(token[1], token[2])) {
                                 server.getMapAuthUser().put(clientAddress,
-                                        new ClientHandler(server, channel, selector, server.getAuthService().
+                                        new ClientHandler(server, key, channel, server.getAuthService().
                                                 getNickNameByLoginAndPassword(token[1], token[2])));
-                                channel.write(ByteBuffer.wrap("auth_ok".getBytes(StandardCharsets.UTF_8)));
+                                sendData("auth_ok");
                                 logger.info("client " + clientAddress + " has got authorization");
                                 command = "";
                                 return;
                             } else {
                                 logger.info("client " + clientAddress + " hasn't got authorization");
-                                channel.write(ByteBuffer.wrap("alert_fail_auth The login or the password is not correct"
-                                        .getBytes(StandardCharsets.UTF_8)));
+                                sendData("alert_fail_auth The login or the password is not correct");
                                 command = "";
                             }
                         } else if (command.startsWith("reg")) {
                             logger.info("client " + clientAddress + " has requested registration");
                             if (server.getAuthService().isRegistration(token[1], token[2])) {
                                 logger.info("client " + clientAddress + " hasn't got registration");
-                                channel.write(ByteBuffer.wrap("alert_fail_reg This user already exist"
-                                        .getBytes(StandardCharsets.UTF_8)));
+                                sendData("alert_fail_reg This user already exist");
                                 command = "";
                             } else {
                                 server.getAuthService().setRegistration(token[1], token[2]);
                                 Files.createDirectory(server.getRoot().resolve("users").resolve(token[1]));
                                 server.getMapAuthUser().put(clientAddress,
-                                        new ClientHandler(server, channel, selector, server.getAuthService().
+                                        new ClientHandler(server, key, channel, server.getAuthService().
                                                 getNickNameByLoginAndPassword(token[1], token[2])));
-                                channel.write(ByteBuffer.wrap("reg_ok".getBytes(StandardCharsets.UTF_8)));
+                                sendData("reg_ok");
                                 logger.info("client " + clientAddress + " has got registration");
                                 command = "";
                                 return;
@@ -116,17 +111,21 @@ public class AcceptHandler implements Runnable {
             e.printStackTrace();
         } finally {
             server.getMapRequestAuthUser().remove(clientAddress);
+            if (!server.getMapRequestAuthUser().containsKey(clientAddress)) {
+                logger.info("AcceptHandler was deleted: " + clientAddress);
+            }
         }
     }
 
     /**
      *
      */
-    public void readChanel() {
+    public void read() {
         if (channel.isOpen()) {
             logger.info("the start reading data from the channel: " + clientAddress);
+            ByteBuffer buf = (ByteBuffer) key.attachment();
             try {
-                int bytesRead = channel.read(buffer);
+                int bytesRead = channel.read(buf);
 
                 if (bytesRead < 0) {
                     channel.close();
@@ -134,12 +133,12 @@ public class AcceptHandler implements Runnable {
                     return;
                 }
 
-                buffer.flip();
+                buf.flip();
                 StringBuilder sb = new StringBuilder();
-                while (buffer.hasRemaining()) {
-                    sb.append((char) buffer.get());
+                while (buf.hasRemaining()) {
+                    sb.append((char) buf.get());
                 }
-                buffer.clear();
+                buf.clear();
                 logger.info("the end read data from the channel: " + clientAddress);
 
                 newCommand(sb.toString());
@@ -166,10 +165,10 @@ public class AcceptHandler implements Runnable {
 
     /**
      *
-     * @param message
+     * @param command
      */
-    private synchronized void newCommand(String message) {
-        command = message;
+    private synchronized void newCommand(String command) {
+        this.command = command;
         if (command.equals("disconnect")) {
             breakConnect();
         }
@@ -178,11 +177,22 @@ public class AcceptHandler implements Runnable {
 
     private void breakConnect() {
         try {
-            channel.write(ByteBuffer.wrap("disconnect".getBytes(StandardCharsets.UTF_8)));
+            sendData("disconnect");
             channel.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
+    private void sendData(Object ob) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream oos = new ObjectOutputStream(baos);
+            oos.writeObject(ob);
+            oos.flush();
+            channel.write(ByteBuffer.wrap(baos.toByteArray()));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -1,12 +1,13 @@
-package com.cloud.client;
+package com.cloud.server;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
-public class FileInfo {
+public class FileInfo implements Serializable {
     private String fileName;
     private long size;
     private LocalDateTime lastTimeModify;
@@ -20,7 +21,8 @@ public class FileInfo {
             }else {
                 this.size = Files.size(path);
             }
-            this.lastTimeModify = LocalDateTime.ofInstant(Files.getLastModifiedTime(path).toInstant(), ZoneOffset.ofHours(0));
+            this.lastTimeModify = LocalDateTime.ofInstant(Files.getLastModifiedTime(path).toInstant(),
+                    ZoneOffset.ofHours(0));
         } catch (IOException e) {
             throw new RuntimeException("Can not determine a file info");
         }
