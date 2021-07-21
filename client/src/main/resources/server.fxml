@@ -17,7 +17,7 @@
             <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" />
             <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" />
             <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" />
-            <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" />
+            <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" onAction="#deleteFile"/>
             <padding>
                 <Insets bottom="5.0" top="5.0" />
             </padding>

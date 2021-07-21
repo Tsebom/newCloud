@@ -106,6 +106,7 @@ public class ClientHandler {
      */
     private void processing(String command) {
         logger.info(clientAddress + " send command: " + command);
+
         if (command.equals("getUpdateFileTable")){
             sendData(updateFileTable(currentPath));
         } else if (command.equals("getPathField")) {
@@ -135,6 +136,14 @@ public class ClientHandler {
             } catch (IOException e) {
                 e.printStackTrace();
                 sendData("alert File cannot be create");
+            }
+        } else if (command.startsWith("delete")) {
+            try {
+                Files.delete(currentPath.resolve(command.substring("delete ".length())));
+                sendData("ok");
+            } catch (IOException e) {
+                e.printStackTrace();
+                sendData("alert File cannot be deleted");
             }
         } else if (command.equals("disconnect")) {
             breakConnect();

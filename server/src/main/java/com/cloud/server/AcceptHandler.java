@@ -151,6 +151,31 @@ public class AcceptHandler implements Runnable {
 
     /**
      *
+     * @param data
+     */
+    private void  write(byte[] data) {
+        ByteBuffer buf = (ByteBuffer) key.attachment();
+        int i = 0;
+        buf.clear();
+        while (i < data.length) {
+            while (buf.hasRemaining() && i < data.length) {
+                buf.put(data[i]);
+                i++;
+            }
+            buf.flip();
+            while (buf.hasRemaining()) {
+                try {
+                    channel.write(buf);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            buf.compact();
+        }
+    }
+
+    /**
+     *
      */
     private synchronized void waitCommand() {
         while (command.equals("")) {
@@ -190,7 +215,7 @@ public class AcceptHandler implements Runnable {
             ObjectOutputStream oos = new ObjectOutputStream(baos);
             oos.writeObject(ob);
             oos.flush();
-            channel.write(ByteBuffer.wrap(baos.toByteArray()));
+            write(baos.toByteArray());
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -33,6 +33,8 @@ public class ServerController implements Initializable {
     private ClientConnect connect;
     private Path root;
 
+    private String selectedFile;
+
     @FXML
     public TextField pathField;
     @FXML
@@ -56,6 +58,8 @@ public class ServerController implements Initializable {
 
     private boolean isRegistration = true;
     private boolean isTryRegistration = false;
+
+
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -180,5 +184,10 @@ public class ServerController implements Initializable {
 
     public void toParentPathAction(ActionEvent actionEvent) {
         connect.getQueue().add("back");
+    }
+
+    public void deleteFile(ActionEvent actionEvent) {
+        connect.getQueue().add("delete ".concat(
+                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()));
     }
 }
