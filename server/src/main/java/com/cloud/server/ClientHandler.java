@@ -65,7 +65,7 @@ public class ClientHandler {
                 }
                 buf.clear();
                 logger.info("the end read data from the channel: " + clientAddress);
-                server.getProcessing().remove(clientAddress);
+                //server.getProcessing().remove(clientAddress);
                 processing(sb.toString());
             } catch (IOException e) {
                 e.printStackTrace();
@@ -96,6 +96,7 @@ public class ClientHandler {
             }
             buf.compact();
         }
+        server.getProcessing().remove(clientAddress);
     }
 
     /**
@@ -111,8 +112,7 @@ public class ClientHandler {
             String s = currentPath.toString();
             sendData(s.replace(root.resolve("users") + File.separator, ""));
         } else if (command.startsWith("moveTo")) {
-            currentPath = currentPath.resolve(command.substring("moveTo ".length()));
-            sendData(updateFileTable(currentPath));
+            moveTo(command);
         } else if (command.equals("moveBack")) {
             if (!currentPath.equals(root.resolve("users").resolve(userName))) {
                 currentPath = currentPath.getParent();
@@ -133,6 +133,16 @@ public class ClientHandler {
         }
     }
 
+    private void moveTo(String command) {
+        currentPath = currentPath.resolve(command.substring("moveTo ".length()));
+        if (Files.isDirectory(currentPath)) {
+            sendData(updateFileTable(currentPath));
+        } else {
+            currentPath = currentPath.getParent();
+            sendData("alert This is not directory");
+        }
+    }
+
     private void deleteFile(String command) {
         try {
             Files.delete(currentPath.resolve(command.substring("delete ".length())));
@@ -145,6 +155,7 @@ public class ClientHandler {
 
     private void copyFile(String command) {
         selectFileForCopy = currentPath.resolve(command.substring("copy ".length()));
+        server.getProcessing().remove(clientAddress);
     }
 
     private void createFileOrDirectory(String command) {
