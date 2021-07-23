@@ -1,9 +1,6 @@
 package com.cloud.server;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -29,6 +26,7 @@ public class ClientHandler {
 
     private Path root = Paths.get("./server");
     private Path currentPath;
+    private Path selectFileForCopy;
     private String command = "";
 
     public ClientHandler(Server server, SelectionKey key, SocketChannel channel, String userName) {
@@ -112,42 +110,66 @@ public class ClientHandler {
         } else if (command.equals("getPathField")) {
             String s = currentPath.toString();
             sendData(s.replace(root.resolve("users") + File.separator, ""));
-        } else if (command.startsWith("doubleclick")) {
-            currentPath = currentPath.resolve(command.substring("doubleclick ".length()));
+        } else if (command.startsWith("moveTo")) {
+            currentPath = currentPath.resolve(command.substring("moveTo ".length()));
             sendData(updateFileTable(currentPath));
-        } else if (command.equals("back")) {
+        } else if (command.equals("moveBack")) {
             if (!currentPath.equals(root.resolve("users").resolve(userName))) {
                 currentPath = currentPath.getParent();
                 sendData(updateFileTable(currentPath));
             } else {
                 sendData("ok");
             }
+        } else if (command.startsWith("copy")) {
+            copyFile(command);
         } else if (command.startsWith("create")) {
-            try {
-                if (command.startsWith("create_file")) {
-                    Files.createFile(Paths.get(currentPath.resolve(
-                            command.substring("create_file".length())).toString()));
-                    sendData("ok");
-                } else if (command.startsWith("create_dir")) {
-                    Files.createDirectory(Paths.get(currentPath.resolve(
-                            command.substring("create_file".length())).toString()));
-                    sendData("ok");
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                sendData("alert File cannot be create");
-            }
+            createFileOrDirectory(command);
+        } else if (command.startsWith("rename")) {
+            renameFile(command);
         } else if (command.startsWith("delete")) {
-            try {
-                Files.delete(currentPath.resolve(command.substring("delete ".length())));
-                sendData("ok");
-            } catch (IOException e) {
-                e.printStackTrace();
-                sendData("alert File cannot be deleted");
-            }
+            deleteFile(command);
         } else if (command.equals("disconnect")) {
             breakConnect();
         }
+    }
+
+    private void deleteFile(String command) {
+        try {
+            Files.delete(currentPath.resolve(command.substring("delete ".length())));
+            sendData("ok");
+        } catch (IOException e) {
+            e.printStackTrace();
+            sendData("alert File cannot be deleted");
+        }
+    }
+
+    private void copyFile(String command) {
+        selectFileForCopy = currentPath.resolve(command.substring("copy ".length()));
+    }
+
+    private void createFileOrDirectory(String command) {
+        try {
+            if (command.startsWith("create_file")) {
+                Files.createFile(Paths.get(currentPath.resolve(
+                        command.substring("create_file ".length())).toString()));
+                sendData("ok");
+            } else if (command.startsWith("create_dir")) {
+                Files.createDirectory(Paths.get(currentPath.resolve(
+                        command.substring("create_file ".length())).toString()));
+                sendData("ok");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            sendData("alert File cannot be create");
+        }
+    }
+
+    private void renameFile(String command) {
+        String[] token = command.split(" ");
+        File currentName = new File(currentPath.resolve(token[1]).toString());
+        File newName = new File(currentPath.resolve(token[2]).toString());
+        currentName.renameTo(newName);
+        sendData("ok");
     }
 
     private void breakConnect() {

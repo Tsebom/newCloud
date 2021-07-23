@@ -60,6 +60,8 @@ public class ClientConnect implements Runnable{
         try {
             while (true) {
                 if (breakClientConnect) {
+                    channel.close();
+                    selector.close();
                     break;
                 }
                 selector.select();

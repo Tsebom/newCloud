@@ -13,13 +13,12 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import javax.swing.*;
-import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.logging.Logger;
 
@@ -33,7 +32,9 @@ public class ServerController implements Initializable {
     private ClientConnect connect;
     private Path root;
 
+    List<FileInfo> listFile;
     private String selectedFile;
+    private String selectFileForCopy;
 
     @FXML
     public TextField pathField;
@@ -58,8 +59,6 @@ public class ServerController implements Initializable {
 
     private boolean isRegistration = true;
     private boolean isTryRegistration = false;
-
-
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -137,30 +136,11 @@ public class ServerController implements Initializable {
         });
     }
 
-    protected void switchServerWindow(boolean isRegistration) {
-        auth_box.setVisible(!isRegistration);
-        auth_box.setManaged(!isRegistration);
-        manager_box.setVisible(isRegistration);
-        manager_box.setManaged(isRegistration);
-        this.isRegistration = !isRegistration;
-    }
-
     public void updateFileTable(List<FileInfo> list) {
+            listFile = list;
             fileTable.getItems().clear();
             fileTable.getItems().addAll(list);
             fileTable.sort();
-    }
-
-    private void regOrAuth (boolean isTryRegistration) {
-        sign_in.setVisible(isTryRegistration);
-        sign_in.setManaged(isTryRegistration);
-        sign_up.setVisible(isTryRegistration);
-        sign_up.setManaged(isTryRegistration);
-        registration.setVisible(!isTryRegistration);
-        registration.setManaged(!isTryRegistration);
-        back_sign_in.setVisible(!isTryRegistration);
-        back_sign_in.setManaged(!isTryRegistration);
-        this.isTryRegistration = !isTryRegistration;
     }
 
     public void createNewFolderOrFile(ActionEvent actionEvent) {
@@ -177,17 +157,75 @@ public class ServerController implements Initializable {
 
     public void selectDirectory(MouseEvent mouseEvent) {
         if (mouseEvent.getClickCount() == 2) {
-            connect.getQueue().add("doubleclick ".concat(
+            connect.getQueue().add("moveTo ".concat(
                     ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()));
         }
     }
 
     public void toParentPathAction(ActionEvent actionEvent) {
-        connect.getQueue().add("back");
+        connect.getQueue().add("moveBack");
     }
 
     public void deleteFile(ActionEvent actionEvent) {
-        connect.getQueue().add("delete ".concat(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()));
+        selectedFile = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "You are going to delete " + selectedFile + " from server! You are sure?" ,
+                ButtonType.NO, ButtonType.YES);
+        Optional<ButtonType> option = alert.showAndWait();
+        if (option.get() == ButtonType.YES) {
+            connect.getQueue().add("delete ".concat(selectedFile));
+        }
+    }
+
+    public void renameFile(ActionEvent actionEvent) {
+        selectedFile = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
+        String rename = JOptionPane.showInputDialog("Type the new name");
+        if (rename != null && !rename.equals("")) {
+            if (isNameFile(rename)) {
+                Alert alert = new Alert(Alert.AlertType.WARNING,
+                        "The file's name already exist!" , ButtonType.CANCEL);
+                alert.showAndWait();
+            } else {
+                connect.getQueue().add("rename ".concat(selectedFile + " " +rename));
+            }
+        }
+    }
+
+    protected void switchServerWindow(boolean isRegistration) {
+        auth_box.setVisible(!isRegistration);
+        auth_box.setManaged(!isRegistration);
+        manager_box.setVisible(isRegistration);
+        manager_box.setManaged(isRegistration);
+        this.isRegistration = !isRegistration;
+    }
+
+    private void regOrAuth (boolean isTryRegistration) {
+        sign_in.setVisible(isTryRegistration);
+        sign_in.setManaged(isTryRegistration);
+        sign_up.setVisible(isTryRegistration);
+        sign_up.setManaged(isTryRegistration);
+        registration.setVisible(!isTryRegistration);
+        registration.setManaged(!isTryRegistration);
+        back_sign_in.setVisible(!isTryRegistration);
+        back_sign_in.setManaged(!isTryRegistration);
+        this.isTryRegistration = !isTryRegistration;
+    }
+
+    public void copyFile(ActionEvent actionEvent) {
+        selectFileForCopy = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
+        connect.getQueue().add("copy ".concat(selectFileForCopy));
+    }
+
+    public void pasteFile(ActionEvent actionEvent) {
+
+    }
+
+    private boolean isNameFile(String nameFile) {
+        for (FileInfo f : listFile) {
+            if (f.getFilename().equals(nameFile)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
