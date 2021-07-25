@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.RandomAccess;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -80,23 +79,23 @@ public class ClientHandler {
      * @param data
      */
     private void  write(byte[] data) {
-        ByteBuffer buf = (ByteBuffer) key.attachment();
+        ByteBuffer buff = (ByteBuffer) key.attachment();
         int i = 0;
-        buf.clear();
+        buff.clear();
         while (i < data.length) {
-            while (buf.hasRemaining() && i < data.length) {
-                buf.put(data[i]);
+            while (buff.hasRemaining() && i < data.length) {
+                buff.put(data[i]);
                 i++;
             }
-            buf.flip();
-            while (buf.hasRemaining()) {
+            buff.flip();
+            while (buff.hasRemaining()) {
                 try {
-                    channel.write(buf);
+                    channel.write(buff);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-            buf.compact();
+            buff.compact();
         }
         server.getProcessing().remove(clientAddress);
     }
@@ -106,18 +105,18 @@ public class ClientHandler {
      * @param
      */
     private void  write(Path path) {
+        logger.info("start sending " + path);
         try {
             RandomAccessFile file = new RandomAccessFile(path.toString(), "r");
             FileChannel fileChannel = file.getChannel();
-
             ByteBuffer buf = (ByteBuffer) key.attachment();
 
             int i = 0;
             buf.clear();
             while (i != -1) {
-                while (buf.hasRemaining()) {
-                    i = fileChannel.read(buf);
-                }
+
+                i = fileChannel.read(buf);
+
                 buf.flip();
                 channel.write(buf);
                 buf.compact();
@@ -129,6 +128,7 @@ public class ClientHandler {
             e.printStackTrace();
         }
         server.getProcessing().remove(clientAddress);
+        logger.info("end sending " + path);
     }
 
     /**
@@ -143,7 +143,9 @@ public class ClientHandler {
             String s = currentPath.toString();
             sendData(s.replace(root.resolve("users") + File.separator, ""));
         } else if (command.startsWith("download")) {
-            downLoadFile(command);
+            downloadFile(command);
+        } else if (command.startsWith("upload")) {
+            uploadFile(command);
         } else if (command.startsWith("moveTo")) {
             moveTo(command);
         } else if (command.equals("moveBack")) {
@@ -165,7 +167,10 @@ public class ClientHandler {
         }
     }
 
-    private void downLoadFile(String command) {
+    private void uploadFile(String command) {
+    }
+
+    private void downloadFile(String command) {
         String[] token = command.split(" ");
         write(currentPath.resolve(token[1]));
     }

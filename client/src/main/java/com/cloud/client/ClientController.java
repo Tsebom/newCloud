@@ -47,7 +47,6 @@ public class ClientController implements Initializable {
     private static Stage stage;
 
     private ClientConnect connect;
-    private ServerController serverController;
     private Path root;
     private Path selectedFilePathForCopy;
     private Path selectedFilePathForCut;
@@ -106,8 +105,6 @@ public class ClientController implements Initializable {
                 connect.getQueue().add("disconnect");
             });
         });
-
-        serverController = connect.getServerController();
     }
 
     public static void setStage(Stage stage) {
@@ -277,14 +274,20 @@ public class ClientController implements Initializable {
     }
 
     public void upLoad(ActionEvent actionEvent) {
-        connect.getQueue().add("");
+        FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
+        if (connect == null) {
+            connect = ClientConnect.getInstance();
+            connect.setClientController(this);
+        }
+        connect.getQueue().add("upload " + fileInfo.getFilename() + " " + fileInfo.getSize());
     }
 
-    public void downLoad(ActionEvent actionEvent) {
-        FileInfo file = serverController.getSelectedFile();
-        if (file.getSize() != -1L) {
-            connect.getQueue().add("download " + file.getFilename());
+    public void downloadFile(ActionEvent actionEvent) {
+        if (connect == null) {
+            connect = ClientConnect.getInstance();
+            connect.setClientController(this);
         }
+        connect.getQueue().add("download");
     }
 
 //    private List<Path> walkDirectory(Path path) {

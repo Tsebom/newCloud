@@ -19,7 +19,7 @@
         <!--Client part-->
         <VBox alignment="CENTER" spacing="5">
             <Button rotate="-90" text="^" VBox.vgrow="ALWAYS" onAction="#upLoad"/>
-            <Button rotate="90" text="^" VBox.vgrow="ALWAYS" onAction="#downLoad"/>
+            <Button rotate="90" text="^" VBox.vgrow="ALWAYS" onAction="#downloadFile"/>
          <padding>
             <Insets bottom="5.0" left="5.0" right="5.0" top="57" />
          </padding>

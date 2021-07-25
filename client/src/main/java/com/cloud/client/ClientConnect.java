@@ -7,11 +7,11 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.LogManager;
@@ -25,12 +25,14 @@ public class ClientConnect implements Runnable{
 
     private static final int PORT = 5679;
     private static final String IP_ADRESS = "localhost";
+    private static final int BUFFER_SIZE = 1460;
 
     private Selector selector;
     private SocketChannel channel;
     private SocketAddress serverAddress;
 
     private ServerController serverController;
+    private ClientController clientController;
 
     private Queue<String> queue = new LinkedBlockingQueue<>();
     private boolean breakClientConnect;
@@ -44,7 +46,7 @@ public class ClientConnect implements Runnable{
             selector = Selector.open();
             channel = SocketChannel.open();
             channel.configureBlocking(false);
-            channel.register(selector, SelectionKey.OP_CONNECT, ByteBuffer.allocate(1460));
+            channel.register(selector, SelectionKey.OP_CONNECT, ByteBuffer.allocate(BUFFER_SIZE));
             channel.connect(new InetSocketAddress(IP_ADRESS, PORT));
             serverAddress = channel.getRemoteAddress();
         } catch (ClosedChannelException e) {
@@ -76,6 +78,10 @@ public class ClientConnect implements Runnable{
                         }
                         if (key.isWritable()) {
                             String line = queue.poll();
+                            if (line != null && line.equals("download")) {
+                                downloadFile(key);
+                                continue;
+                            }
                             if (line != null) {
                                 logger.info("send command to the server: " + line);
                                 channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
@@ -104,12 +110,12 @@ public class ClientConnect implements Runnable{
         return queue;
     }
 
-    public ServerController getServerController() {
-        return serverController;
-    }
-
     public void setServerController(ServerController serverController) {
         this.serverController = serverController;
+    }
+
+    public void setClientController(ClientController clientController) {
+        this.clientController = clientController;
     }
 
     public void setNameUser(String nameUser) {
@@ -141,6 +147,50 @@ public class ClientConnect implements Runnable{
 
             convertData(b);
             logger.info("the end read data from the channel: " + serverAddress);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void readFile(SelectionKey key, Path pathFile, FileInfo fileInfo) {
+        logger.info("start download file");
+        try {
+            RandomAccessFile file = new RandomAccessFile(pathFile.toString(), "rw");
+            FileChannel fileChannel = file.getChannel();
+            ByteBuffer buff = (ByteBuffer) key.attachment();
+            long size = 0L;
+            buff.clear();
+            while (size < fileInfo.getSize()) {
+
+                size += channel.read(buff);
+                logger.info(String.valueOf(size) + " " + String.valueOf(fileInfo.getSize()));
+
+                buff.flip();
+                while (buff.hasRemaining()) {
+                    fileChannel.write(buff);
+                }
+                buff.compact();
+            }
+            clientController.updateFileTable(pathFile.getParent());
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void downloadFile(SelectionKey key) {
+        FileInfo fileInfo = serverController.getSelectedFile();
+        Path pathFile = Paths.get(clientController.pathField.getText()).resolve(fileInfo.getFilename());
+        try {
+            if (!Files.exists(pathFile)) {
+                String command = "download " + fileInfo.getFilename();
+                channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
+                Files.createFile(pathFile);
+                readFile(key, pathFile, fileInfo);
+            } else {
+                Platform.runLater(() -> ClientController.alertWarning("This file is exist"));
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
