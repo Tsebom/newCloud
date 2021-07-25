@@ -18,8 +18,8 @@
 
         <!--Client part-->
         <VBox alignment="CENTER" spacing="5">
-            <Button rotate="-90" text="^" VBox.vgrow="ALWAYS" />
-            <Button rotate="90" text="^" VBox.vgrow="ALWAYS" />
+            <Button rotate="-90" text="^" VBox.vgrow="ALWAYS" onAction="#upLoad"/>
+            <Button rotate="90" text="^" VBox.vgrow="ALWAYS" onAction="#downLoad"/>
          <padding>
             <Insets bottom="5.0" left="5.0" right="5.0" top="57" />
          </padding>
@@ -35,8 +35,8 @@
             <TableView onMouseClicked="#selectDirectory" fx:id="fileTable" VBox.vgrow="ALWAYS"/>
             <HBox spacing="5">
                 <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#copyFile"/>
+                <Button maxWidth="Infinity" text="Cut" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#cutFile"/>
                 <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#pasteFile"/>
-                <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#moveFile"/>
                 <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#renameFile"/>
                 <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#deleteFile"/>
             <padding>

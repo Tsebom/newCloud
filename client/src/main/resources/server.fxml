@@ -14,8 +14,8 @@
         <TableView onMouseClicked="#selectDirectory" VBox.vgrow="ALWAYS" fx:id="fileTable"/>
         <HBox spacing="5">
             <Button maxWidth="Infinity" text="Copy" HBox.hgrow="ALWAYS"  onAction="#copyFile"/>
+            <Button maxWidth="Infinity" text="Cut" HBox.hgrow="ALWAYS" onAction="#cutFile"/>
             <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" onAction="#pasteFile"/>
-            <Button maxWidth="Infinity" text="Move" HBox.hgrow="ALWAYS" />
             <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" onAction="#renameFile"/>
             <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" onAction="#deleteFile"/>
             <padding>

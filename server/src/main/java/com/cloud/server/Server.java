@@ -73,13 +73,15 @@ public class Server {
                         }
                         if (key.isReadable()) {
                             SocketAddress socket = ((SocketChannel) key.channel()).getRemoteAddress();
-                            if (mapAuthUser.containsKey(socket) && !processing.contains(socket)) {
+                            if (key.channel().isOpen() && mapAuthUser.containsKey(socket)
+                                    && !processing.contains(socket)) {
                                 logger.info("readable event from " + socket);
                                 processing.add(socket);
                                 service.execute(() -> {
                                     mapAuthUser.get(socket).read();
                                 });
-                            } else if (mapRequestAuthUser.containsKey(socket) && !processing.contains(socket)) {
+                            } else if (key.channel().isOpen() && mapRequestAuthUser.containsKey(socket)
+                                    && !processing.contains(socket)) {
                                 processing.add(socket);
                                 service.execute(() -> {
                                     mapRequestAuthUser.get(socket).read();

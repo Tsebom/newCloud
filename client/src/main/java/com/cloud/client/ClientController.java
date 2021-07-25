@@ -31,9 +31,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class ClientController implements Initializable {
+    private Logger logger = ClientConnect.logger;
+
     @FXML
     public TextField pathField;
     @FXML
@@ -44,8 +47,10 @@ public class ClientController implements Initializable {
     private static Stage stage;
 
     private ClientConnect connect;
+    private ServerController serverController;
     private Path root;
     private Path selectedFilePathForCopy;
+    private Path selectedFilePathForCut;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -101,6 +106,8 @@ public class ClientController implements Initializable {
                 connect.getQueue().add("disconnect");
             });
         });
+
+        serverController = connect.getServerController();
     }
 
     public static void setStage(Stage stage) {
@@ -157,58 +164,70 @@ public class ClientController implements Initializable {
     public void copyFile(ActionEvent actionEvent) {
         selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
                 ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
+        selectedFilePathForCut = null;
+        logger.info(selectedFilePathForCopy.toString());
     }
 
-    public short pasteFile(ActionEvent actionEvent) {
+    public void cutFile(ActionEvent actionEvent) {
+        selectedFilePathForCut = Paths.get(pathField.getText()).resolve(
+                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
+        selectedFilePathForCopy = null;
+        logger.info(selectedFilePathForCut.toString());
+    }
+
+    public void pasteFile(ActionEvent actionEvent) {
         Path path = Paths.get(pathField.getText());
 
-        if (!Files.isDirectory(selectedFilePathForCopy)) {
+        if (selectedFilePathForCopy != null && selectedFilePathForCut == null) {
+            if (!Files.isDirectory(selectedFilePathForCopy)) {
+                try {
+                    //if file is exist
+                    if (Files.exists(path.resolve(selectedFilePathForCopy.getFileName()))) {
+                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                                "This file is exist. Do you want to continue",
+                                ButtonType.YES, ButtonType.NO);
+                        Optional<ButtonType> option = alert.showAndWait();
+                        if (option.get() == ButtonType.YES) {
+                            Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()),
+                                    StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    } else {
+                        Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()));
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                selectedFilePathForCopy = null;
+            }
+        } else if (selectedFilePathForCopy == null && selectedFilePathForCut != null) {
             try {
                 //if file is exist
-                if (Files.exists(path.resolve(selectedFilePathForCopy.getFileName()))) {
+                if (Files.exists(path.resolve(selectedFilePathForCut.getFileName()))) {
                     Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                            "This file is exist. Do you want to continue", ButtonType.APPLY, ButtonType.CANCEL);
+                            "This file is exist. Do you want to continue",
+                            ButtonType.YES, ButtonType.NO);
                     Optional<ButtonType> option = alert.showAndWait();
-                    if (option.get() == ButtonType.APPLY) {
-                        Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()),
+                    if (option.get() == ButtonType.YES) {
+                        Files.copy(selectedFilePathForCut, path.resolve(selectedFilePathForCut.getFileName()),
                                 StandardCopyOption.REPLACE_EXISTING);
-                        return 0;
                     }
-                    if (option.get() == ButtonType.CANCEL) {
-                        return -1;
-                    }
+                } else {
+                    Files.copy(selectedFilePathForCut, path.resolve(selectedFilePathForCut.getFileName()));
+                    Files.delete(selectedFilePathForCut);
                 }
-                Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            selectedFilePathForCut = null;
         }
         updateFileTable(Paths.get(pathField.getText()));
-        return 1;
-    }
-
-    public void moveFile(ActionEvent actionEvent) {
-        if (!pathField.getText().startsWith(selectedFilePathForCopy.toString())) {
-            short i = pasteFile(actionEvent);
-            try {
-                if (i >= 0) {
-                    Files.delete(selectedFilePathForCopy);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return;
-        }
-        Alert alert = new Alert(Alert.AlertType.WARNING, "You can't made move command to the folder "
-                .concat(selectedFilePathForCopy.getFileName().toString()), ButtonType.OK);
-        alert.showAndWait();
     }
 
     public void deleteFile(ActionEvent actionEvent) {
         selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
                 ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure", ButtonType.YES,
-                ButtonType.CANCEL);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure",
+                ButtonType.YES, ButtonType.CANCEL);
         Optional<ButtonType> option = alert.showAndWait();
         if (option.get() == ButtonType.YES) {
             try {
@@ -255,6 +274,17 @@ public class ClientController implements Initializable {
             disks.getItems().add(path.toString());
         }
         disks.getSelectionModel().select(0);
+    }
+
+    public void upLoad(ActionEvent actionEvent) {
+        connect.getQueue().add("");
+    }
+
+    public void downLoad(ActionEvent actionEvent) {
+        FileInfo file = serverController.getSelectedFile();
+        if (file.getSize() != -1L) {
+            connect.getQueue().add("download " + file.getFilename());
+        }
     }
 
 //    private List<Path> walkDirectory(Path path) {

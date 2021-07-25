@@ -100,6 +100,10 @@ public class ServerController implements Initializable {
         fileTable.getSortOrder().add(nameFileColumn);
     }
 
+    public FileInfo getSelectedFile() {
+        return (FileInfo)fileTable.getSelectionModel().getSelectedItem();
+    }
+
     public static void setStage(Stage stage) {
         ServerController.stage = stage;
     }
@@ -216,7 +220,7 @@ public class ServerController implements Initializable {
     }
 
     public void pasteFile(ActionEvent actionEvent) {
-
+        connect.getQueue().add("past");
     }
 
     private boolean isNameFile(String nameFile) {
@@ -226,5 +230,10 @@ public class ServerController implements Initializable {
             }
         }
         return false;
+    }
+
+    public void cutFile(ActionEvent actionEvent) {
+        selectFileForCopy = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
+        connect.getQueue().add("cut ".concat(selectFileForCopy));
     }
 }

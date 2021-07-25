@@ -41,6 +41,7 @@ public class AcceptHandler implements Runnable {
             channel.register(selector, SelectionKey.OP_READ);
             clientAddress = channel.getRemoteAddress();
             logger.info("client has connected: " + clientAddress);
+            server.getProcessing().add(clientAddress);
             server.getMapRequestAuthUser().put(clientAddress, this);
             logger.info("create AcceptHandler: " + clientAddress);
         } catch (ClosedChannelException e) {
@@ -80,7 +81,7 @@ public class AcceptHandler implements Runnable {
                                 sendData("auth_ok");
                                 logger.info("client " + clientAddress + " has got authorization");
                                 command = "";
-                                return;
+                                break;
                             } else {
                                 logger.info("client " + clientAddress + " hasn't got authorization");
                                 sendData("alert_fail_auth The login or the password is not correct");
@@ -101,7 +102,7 @@ public class AcceptHandler implements Runnable {
                                 sendData("reg_ok");
                                 logger.info("client " + clientAddress + " has got registration");
                                 command = "";
-                                return;
+                                break;
                             }
                         }
                     }
@@ -111,6 +112,7 @@ public class AcceptHandler implements Runnable {
             e.printStackTrace();
         } finally {
             server.getMapRequestAuthUser().remove(clientAddress);
+            server.getProcessing().remove(clientAddress);
             if (!server.getMapRequestAuthUser().containsKey(clientAddress)) {
                 logger.info("AcceptHandler was deleted: " + clientAddress);
             }
@@ -142,7 +144,6 @@ public class AcceptHandler implements Runnable {
                 logger.info("the end read data from the channel: " + clientAddress);
 
                 newCommand(sb.toString());
-                server.getProcessing().remove(clientAddress);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -181,6 +182,7 @@ public class AcceptHandler implements Runnable {
         while (command.equals("")) {
             try {
                 logger.info("wait command from client");
+                server.getProcessing().remove(clientAddress);
                 wait();
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -193,20 +195,11 @@ public class AcceptHandler implements Runnable {
      * @param command
      */
     private synchronized void newCommand(String command) {
-        this.command = command;
         if (command.equals("disconnect")) {
-            breakConnect();
-        }
-        notify();
-    }
-
-    private void breakConnect() {
-        try {
             sendData("disconnect");
-            channel.close();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+        this.command = command;
+        notify();
     }
 
     private void sendData(Object ob) {

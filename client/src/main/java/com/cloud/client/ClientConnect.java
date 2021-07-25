@@ -38,7 +38,6 @@ public class ClientConnect implements Runnable{
 
     private ClientConnect() {
         instance = this;
-        breakClientConnect = false;
         logger.info("client instance created");
         try {
             logmanager.readConfiguration(new FileInputStream("client/logging.properties"));
@@ -64,29 +63,29 @@ public class ClientConnect implements Runnable{
                     selector.close();
                     break;
                 }
-                selector.select();
-                Set<SelectionKey> keys = selector.selectedKeys();
-                Iterator<SelectionKey> iterator = keys.iterator();
-                while (iterator.hasNext()) {
-                    SelectionKey key = iterator.next();
-                    if (key.isConnectable()) {
-                        channel.finishConnect();
-                        logger.info("Connection to the server");
-                        key.interestOps(SelectionKey.OP_WRITE);
-                    }
-                    if (key.isWritable()) {
-                        String line = queue.poll();
-                        if (line != null) {
-                            logger.info("send command to the server: " + line);
-                            channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
-                            key.interestOps(SelectionKey.OP_READ);
+                if (selector.isOpen()) {
+                    selector.select();
+                    Set<SelectionKey> keys = selector.selectedKeys();
+                    Iterator<SelectionKey> iterator = keys.iterator();
+                    while (iterator.hasNext()) {
+                        SelectionKey key = iterator.next();
+                        if (key.isConnectable()) {
+                            channel.finishConnect();
+                            logger.info("Connection to the server");
+                            key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
                         }
+                        if (key.isWritable()) {
+                            String line = queue.poll();
+                            if (line != null) {
+                                logger.info("send command to the server: " + line);
+                                channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
+                            }
+                        }
+                        if (key.isReadable()) {
+                            read(key);
+                        }
+                        iterator.remove();
                     }
-                    if (key.isReadable()) {
-                        read(key);
-                        key.interestOps(SelectionKey.OP_WRITE);
-                    }
-                    iterator.remove();
                 }
             }
         } catch (IOException e) {
@@ -105,10 +104,13 @@ public class ClientConnect implements Runnable{
         return queue;
     }
 
+    public ServerController getServerController() {
+        return serverController;
+    }
+
     public void setServerController(ServerController serverController) {
         this.serverController = serverController;
     }
-
 
     public void setNameUser(String nameUser) {
         this.nameUser = nameUser;
@@ -179,9 +181,11 @@ public class ClientConnect implements Runnable{
             serverController.switchServerWindow(serverController.isRegistration());
             serverController.setTitle("Cloud");
             queue.add("getPathField");
-        } else if (command.equals("disconnect")) {
+        }
+
+        if (command.equals("disconnect")) {
+            logger.info("disconnect confirmed");
             breakClientConnect = true;
-            Platform.exit();
         }
     }
 
@@ -190,7 +194,6 @@ public class ClientConnect implements Runnable{
             ByteArrayInputStream bais = new ByteArrayInputStream(b);
             ObjectInputStream ois = new ObjectInputStream(bais);
             Object ob = ois.readObject();
-
             if (ob instanceof String) {
                 processingCommand((String) ob);
             }

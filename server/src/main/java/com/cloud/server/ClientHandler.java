@@ -3,6 +3,7 @@ package com.cloud.server;
 import java.io.*;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -10,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.RandomAccess;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -27,7 +29,7 @@ public class ClientHandler {
     private Path root = Paths.get("./server");
     private Path currentPath;
     private Path selectFileForCopy;
-    private String command = "";
+    private Path selectFileForCut;
 
     public ClientHandler(Server server, SelectionKey key, SocketChannel channel, String userName) {
         this.userName = userName;
@@ -101,27 +103,57 @@ public class ClientHandler {
 
     /**
      *
+     * @param
+     */
+    private void  write(Path path) {
+        try {
+            RandomAccessFile file = new RandomAccessFile(path.toString(), "r");
+            FileChannel fileChannel = file.getChannel();
+
+            ByteBuffer buf = (ByteBuffer) key.attachment();
+
+            int i = 0;
+            buf.clear();
+            while (i != -1) {
+                while (buf.hasRemaining()) {
+                    i = fileChannel.read(buf);
+                }
+                buf.flip();
+                channel.write(buf);
+                buf.compact();
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            sendData("alert This file is not exist");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        server.getProcessing().remove(clientAddress);
+    }
+
+    /**
+     *
      * @param command
      */
     private void processing(String command) {
         logger.info(clientAddress + " send command: " + command);
-
         if (command.equals("getUpdateFileTable")){
             sendData(updateFileTable(currentPath));
         } else if (command.equals("getPathField")) {
             String s = currentPath.toString();
             sendData(s.replace(root.resolve("users") + File.separator, ""));
+        } else if (command.startsWith("download")) {
+            downLoadFile(command);
         } else if (command.startsWith("moveTo")) {
             moveTo(command);
         } else if (command.equals("moveBack")) {
-            if (!currentPath.equals(root.resolve("users").resolve(userName))) {
-                currentPath = currentPath.getParent();
-                sendData(updateFileTable(currentPath));
-            } else {
-                sendData("ok");
-            }
+            moveBack();
         } else if (command.startsWith("copy")) {
             copyFile(command);
+        } else if (command.equals("past")) {
+            pastFile();
+        } else if (command.startsWith("cut")) {
+            cutFile(command);
         } else if (command.startsWith("create")) {
             createFileOrDirectory(command);
         } else if (command.startsWith("rename")) {
@@ -130,6 +162,57 @@ public class ClientHandler {
             deleteFile(command);
         } else if (command.equals("disconnect")) {
             breakConnect();
+        }
+    }
+
+    private void downLoadFile(String command) {
+        String[] token = command.split(" ");
+        write(currentPath.resolve(token[1]));
+    }
+
+    private void copyFile(String command) {
+        selectFileForCopy = currentPath.resolve(command.substring("copy ".length()));
+        server.getProcessing().remove(clientAddress);
+    }
+
+    private void cutFile(String command) {
+        selectFileForCut = currentPath.resolve(command.substring("cut ".length()));
+        server.getProcessing().remove(clientAddress);
+    }
+
+    private void pastFile() {
+        try {
+            if (selectFileForCopy != null && selectFileForCut == null) {
+                if (!Files.exists(currentPath.resolve(selectFileForCopy.getFileName()))) {
+                    Files.copy(selectFileForCopy, currentPath.resolve(selectFileForCopy.getFileName()));
+                    selectFileForCopy = null;
+                    sendData("ok");
+                } else {
+                    sendData("alert The file name is exist");
+                }
+            } else if (selectFileForCopy == null && selectFileForCut != null) {
+                if (!Files.exists(currentPath.resolve(selectFileForCut.getFileName()))) {
+                    Files.copy(selectFileForCut, currentPath.resolve(selectFileForCut.getFileName()));
+                    Files.delete(selectFileForCut);
+                    selectFileForCut = null;
+                    sendData("ok");
+                } else {
+                    sendData("alert The file name is exist");
+                }
+            } else {
+                server.getProcessing().remove(channel);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void moveBack() {
+        if (!currentPath.equals(root.resolve("users").resolve(userName))) {
+            currentPath = currentPath.getParent();
+            sendData(updateFileTable(currentPath));
+        } else {
+            sendData("ok");
         }
     }
 
@@ -151,11 +234,6 @@ public class ClientHandler {
             e.printStackTrace();
             sendData("alert File cannot be deleted");
         }
-    }
-
-    private void copyFile(String command) {
-        selectFileForCopy = currentPath.resolve(command.substring("copy ".length()));
-        server.getProcessing().remove(clientAddress);
     }
 
     private void createFileOrDirectory(String command) {
