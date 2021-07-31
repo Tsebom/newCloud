@@ -28,6 +28,7 @@ public class ClientConnect implements Runnable{
     private static final int BUFFER_SIZE = 1460;
 
     private Selector selector;
+    private SelectionKey key;
     private SocketChannel channel;
     private SocketAddress serverAddress;
 
@@ -46,7 +47,7 @@ public class ClientConnect implements Runnable{
             selector = Selector.open();
             channel = SocketChannel.open();
             channel.configureBlocking(false);
-            channel.register(selector, SelectionKey.OP_CONNECT, ByteBuffer.allocate(BUFFER_SIZE));
+            key= channel.register(selector, SelectionKey.OP_CONNECT, ByteBuffer.allocate(BUFFER_SIZE));
             channel.connect(new InetSocketAddress(IP_ADRESS, PORT));
             serverAddress = channel.getRemoteAddress();
         } catch (ClosedChannelException e) {
@@ -163,7 +164,7 @@ public class ClientConnect implements Runnable{
             while (size < fileInfo.getSize()) {
 
                 size += channel.read(buff);
-                logger.info(String.valueOf(size) + " " + String.valueOf(fileInfo.getSize()));
+//                logger.info(size + " " + fileInfo.getSize());
 
                 buff.flip();
                 while (buff.hasRemaining()) {
@@ -177,6 +178,31 @@ public class ClientConnect implements Runnable{
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void  writeFile(Path path) {
+        logger.info("start sending " + path);
+        try {
+            RandomAccessFile file = new RandomAccessFile(path.toString(), "r");
+            FileChannel fileChannel = file.getChannel();
+            ByteBuffer buff = (ByteBuffer) key.attachment();
+
+            int i = 0;
+            buff.clear();
+            while (i != -1) {
+
+                i = fileChannel.read(buff);
+
+                buff.flip();
+                channel.write(buff);
+                buff.compact();
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        logger.info("end sending " + path);
     }
 
     private void downloadFile(SelectionKey key) {
@@ -231,6 +257,8 @@ public class ClientConnect implements Runnable{
             serverController.switchServerWindow(serverController.isRegistration());
             serverController.setTitle("Cloud");
             queue.add("getPathField");
+        } else if (command.equals("ready_for_get_file")) {
+            writeFile(clientController.getSelectedFileForUpload());
         }
 
         if (command.equals("disconnect")) {

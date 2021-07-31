@@ -76,6 +76,40 @@ public class ClientHandler {
 
     /**
      *
+     * @param key
+     * @param pathFile
+     * @param sizeFile
+     */
+    private void readFile(SelectionKey key, Path pathFile, long sizeFile) {
+        logger.info("start download file");
+        try {
+            server.getProcessing().add(clientAddress);
+            RandomAccessFile file = new RandomAccessFile(pathFile.toString(), "rw");
+            FileChannel fileChannel = file.getChannel();
+            ByteBuffer buff = (ByteBuffer) key.attachment();
+            long size = 0L;
+            buff.clear();
+            while (size < sizeFile) {
+
+                size += channel.read(buff);
+                logger.info(String.valueOf(size) + " " + String.valueOf(sizeFile));
+
+                buff.flip();
+                while (buff.hasRemaining()) {
+                    fileChannel.write(buff);
+                }
+                buff.compact();
+            }
+            sendData("ok");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     *
      * @param data
      */
     private void  write(byte[] data) {
@@ -104,22 +138,22 @@ public class ClientHandler {
      *
      * @param
      */
-    private void  write(Path path) {
+    private void  writeFile(Path path) {
         logger.info("start sending " + path);
         try {
             RandomAccessFile file = new RandomAccessFile(path.toString(), "r");
             FileChannel fileChannel = file.getChannel();
-            ByteBuffer buf = (ByteBuffer) key.attachment();
+            ByteBuffer buff = (ByteBuffer) key.attachment();
 
             int i = 0;
-            buf.clear();
+            buff.clear();
             while (i != -1) {
 
-                i = fileChannel.read(buf);
+                i = fileChannel.read(buff);
 
-                buf.flip();
-                channel.write(buf);
-                buf.compact();
+                buff.flip();
+                channel.write(buff);
+                buff.compact();
             }
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -168,11 +202,24 @@ public class ClientHandler {
     }
 
     private void uploadFile(String command) {
+        String[] token = command.split(" ");
+        if (Files.exists(currentPath.resolve(token[1]))) {
+            sendData("alert This file is exist");
+        } else {
+            try {
+                Files.createFile(currentPath.resolve(token[1]));
+                sendData("ready_for_get_file");
+                long size = Long.parseLong(token[2]);
+                readFile(key, currentPath.resolve(token[1]), size);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private void downloadFile(String command) {
         String[] token = command.split(" ");
-        write(currentPath.resolve(token[1]));
+        writeFile(currentPath.resolve(token[1]));
     }
 
     private void copyFile(String command) {

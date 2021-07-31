@@ -26,11 +26,9 @@ import java.net.URL;
 import java.nio.channels.SocketChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileAttribute;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.ResourceBundle;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -48,8 +46,12 @@ public class ClientController implements Initializable {
 
     private ClientConnect connect;
     private Path root;
+    private Path selected;
+    private Path selectedFilePathForDelete;
     private Path selectedFilePathForCopy;
     private Path selectedFilePathForCut;
+    private Path selectedFileForUpload;
+    private Path selectedFilePathForRename;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -100,11 +102,16 @@ public class ClientController implements Initializable {
         Platform.runLater(() -> {
             stage.setOnCloseRequest((event) -> {
                 if (connect == null) {
-                    connect = ClientConnect.getInstance();
+                    Platform.exit();
+                } else if (connect != null) {
+                    connect.getQueue().add("disconnect");
                 }
-                connect.getQueue().add("disconnect");
             });
         });
+    }
+
+    public Path getSelectedFileForUpload() {
+        return selectedFileForUpload;
     }
 
     public static void setStage(Stage stage) {
@@ -148,108 +155,202 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(disk.getSelectionModel().getSelectedItem()));
     }
 
-    public void selectDirectory(MouseEvent mouseEvent) {
-        if (mouseEvent.getClickCount() == 2) {
+    public void selectDirectoryOrFile(MouseEvent mouseEvent) {
+        if (mouseEvent.getClickCount() == 1) {
+            selected = Paths.get(pathField.getText()).resolve(
+                    ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
+        } else if (mouseEvent.getClickCount() == 2) {
             Path path = Paths.get(pathField.getText()).resolve(
                     ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
             if (Files.isDirectory(path)) {
                 updateFileTable(path);
             }
+            selected = null;
         }
     }
 
-    public void copyFile(ActionEvent actionEvent) {
-        selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        selectedFilePathForCut = null;
-        logger.info(selectedFilePathForCopy.toString());
+    public void copyFileOrDir(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFilePathForCopy = selected;
+            selected = null;
+            logger.info(selectedFilePathForCopy.toString());
+        } else {
+            alertWarning("No one file was selected");
+        }
     }
 
-    public void cutFile(ActionEvent actionEvent) {
-        selectedFilePathForCut = Paths.get(pathField.getText()).resolve(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        selectedFilePathForCopy = null;
-        logger.info(selectedFilePathForCut.toString());
+    public void cutFileOrDir(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFilePathForCut = selected;
+            selected = null;
+            logger.info(selectedFilePathForCut.toString());
+        } else {
+            alertWarning("No one file was selected");
+        }
     }
 
-    public void pasteFile(ActionEvent actionEvent) {
+    public void pasteFileOrDir(ActionEvent actionEvent) {
         Path path = Paths.get(pathField.getText());
 
         if (selectedFilePathForCopy != null && selectedFilePathForCut == null) {
-            if (!Files.isDirectory(selectedFilePathForCopy)) {
+            pastCopyFileOrDir(path);
+        } else if (selectedFilePathForCopy == null && selectedFilePathForCut != null) {
+            pastCutFileOrDir(path);
+        } else {
+            alertWarning("No one file was selected");
+            return;
+        }
+        updateFileTable(Paths.get(pathField.getText()));
+    }
+
+    private void pastCutFileOrDir(Path path) {
+        try {
+            if (!Files.isDirectory(selectedFilePathForCut)) {
+                copyFile(selectedFilePathForCopy, path);
+                Files.delete(selectedFilePathForCut);
+            }else if (Files.isDirectory(selectedFilePathForCut)) {
+                copyDirectory(selectedFilePathForCut, path);
+                deleteDirectory(selectedFilePathForCut);
+            }
+            selectedFilePathForCut = null;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void pastCopyFileOrDir(Path path) {
+        if (!Files.isDirectory(selectedFilePathForCopy)) {
+            copyFile(selectedFilePathForCopy, path);
+        }else if (Files.isDirectory(selectedFilePathForCopy)) {
+            copyDirectory(selectedFilePathForCopy, path);
+        }
+        selectedFilePathForCopy = null;
+    }
+
+    private void copyFile(Path source, Path target) {
+        try {
+            if (Files.exists(target.resolve(source.getFileName()))) {
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                        "This file is exist. Do you want to continue",
+                        ButtonType.YES, ButtonType.NO);
+                Optional<ButtonType> option = alert.showAndWait();
+                if (option.get() == ButtonType.YES) {
+                    Files.copy(source, target.resolve(source.getFileName()),
+                            StandardCopyOption.REPLACE_EXISTING);
+                }
+            } else {
+                Files.copy(source, target.resolve(source.getFileName()));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void copyDirectory(Path source, Path target) {
+        try {
+            target = target.resolve(source.getFileName());
+            Files.createDirectory(target);
+            List<Path> list = walkDirectory(source);
+            logger.info(list.toString());
+            if (list.isEmpty()) {
+                return;
+            }
+            Collections.sort(list);
+
+            for (Path p : list) {
+                Path s = source.resolve(p);
+                Path t = target.resolve(p);
+                if (Files.isDirectory(s)) {
+                    Files.createDirectory(t);
+                } else if (!Files.isDirectory(s)) {
+                    Files.createFile(t);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void deleteFileOrDir(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFilePathForDelete = selected;
+            selected = null;
+
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure",
+                    ButtonType.YES, ButtonType.CANCEL);
+            Optional<ButtonType> option = alert.showAndWait();
+            if (option.get() == ButtonType.YES) {
                 try {
-                    //if file is exist
-                    if (Files.exists(path.resolve(selectedFilePathForCopy.getFileName()))) {
-                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                                "This file is exist. Do you want to continue",
-                                ButtonType.YES, ButtonType.NO);
-                        Optional<ButtonType> option = alert.showAndWait();
-                        if (option.get() == ButtonType.YES) {
-                            Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()),
-                                    StandardCopyOption.REPLACE_EXISTING);
-                        }
-                    } else {
-                        Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()));
+                    if (!Files.isDirectory(selectedFilePathForDelete)) {
+                        Files.delete(selectedFilePathForDelete);
+                    } else if (Files.isDirectory(selectedFilePathForDelete)) {
+                        deleteDirectory(selectedFilePathForDelete);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                selectedFilePathForCopy = null;
             }
-        } else if (selectedFilePathForCopy == null && selectedFilePathForCut != null) {
-            try {
-                //if file is exist
-                if (Files.exists(path.resolve(selectedFilePathForCut.getFileName()))) {
-                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                            "This file is exist. Do you want to continue",
-                            ButtonType.YES, ButtonType.NO);
-                    Optional<ButtonType> option = alert.showAndWait();
-                    if (option.get() == ButtonType.YES) {
-                        Files.copy(selectedFilePathForCut, path.resolve(selectedFilePathForCut.getFileName()),
-                                StandardCopyOption.REPLACE_EXISTING);
-                    }
-                } else {
-                    Files.copy(selectedFilePathForCut, path.resolve(selectedFilePathForCut.getFileName()));
-                    Files.delete(selectedFilePathForCut);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            selectedFilePathForCut = null;
+
+        } else {
+            alertWarning("No one file was selected");
+            return;
         }
+        selectedFilePathForDelete = null;
         updateFileTable(Paths.get(pathField.getText()));
     }
 
-    public void deleteFile(ActionEvent actionEvent) {
-        selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure",
-                ButtonType.YES, ButtonType.CANCEL);
-        Optional<ButtonType> option = alert.showAndWait();
-        if (option.get() == ButtonType.YES) {
-            try {
-                Files.delete(selectedFilePathForCopy);
-            } catch (IOException e) {
-                e.printStackTrace();
+    private void deleteDirectory(Path path) {
+        try {
+            List<Path> list = walkDirectory(path);
+
+            if (!list.isEmpty()) {
+                Collections.sort(list);
+                Collections.reverse(list);
+            } else {
+                Files.delete(path);
+                return;
             }
+
+            while (!list.isEmpty()) {
+                Iterator<Path> iterator = list.iterator();
+                while (iterator.hasNext()) {
+                    Path p = iterator.next();
+                    Path t = path.resolve(p);
+                    if (!Files.isDirectory(t)) {
+                        Files.delete(t);
+                    } else if (Files.isDirectory(t) && walkDirectory(t).isEmpty()) {
+                        Files.delete(t);
+                    }
+                    iterator.remove();
+                    list.remove(p);
+                }
+            }
+            Files.delete(path);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        updateFileTable(Paths.get(pathField.getText()));
     }
 
     public void renameFile(ActionEvent actionEvent) {
-        selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        String rename = JOptionPane.showInputDialog("Type the new name");
-        File currentName = new File(selectedFilePathForCopy.toString());
-        File newName = new File(selectedFilePathForCopy.getParent().resolve(rename).toString());
-        if (rename != null && !rename.equals("")) {
-            currentName.renameTo(newName);
+        if (selected != null) {
+            selectedFilePathForRename = selected;
+            selected = null;
+
+            String rename = JOptionPane.showInputDialog("Type a new name of the file");
+            File currentName = new File(selectedFilePathForRename.toString());
+            File newName = new File(selectedFilePathForRename.getParent().resolve(rename).toString());
+            if (rename != null && !rename.equals("")) {
+                currentName.renameTo(newName);
+            }
+            selectedFilePathForRename = null;
+            updateFileTable(Paths.get(pathField.getText()));
+        } else {
+            alertWarning("No one file was selected");
         }
-        updateFileTable(Paths.get(pathField.getText()));
     }
 
     public void createNewFolderOrFile(ActionEvent actionEvent) {
-        String name = JOptionPane.showInputDialog("Type the name folder");
+        String name = JOptionPane.showInputDialog("Type a name folder");
         if (name != null && !name.equals("")) {
             try {
                 if (name.contains(".")) {
@@ -273,13 +374,19 @@ public class ClientController implements Initializable {
         disks.getSelectionModel().select(0);
     }
 
-    public void upLoad(ActionEvent actionEvent) {
-        FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
-        if (connect == null) {
-            connect = ClientConnect.getInstance();
-            connect.setClientController(this);
+    public void uploadFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
+            selectedFileForUpload = selected;
+            selected = null;
+            if (connect == null) {
+                connect = ClientConnect.getInstance();
+                connect.setClientController(this);
+            }
+            connect.getQueue().add("upload " + fileInfo.getFilename() + " " + fileInfo.getSize());
+        } else {
+            alertWarning("No one file was selected");
         }
-        connect.getQueue().add("upload " + fileInfo.getFilename() + " " + fileInfo.getSize());
     }
 
     public void downloadFile(ActionEvent actionEvent) {
@@ -287,22 +394,35 @@ public class ClientController implements Initializable {
             connect = ClientConnect.getInstance();
             connect.setClientController(this);
         }
-        connect.getQueue().add("download");
+        if (fileTable.getSelectionModel().getSelectedItem() != null) {
+            connect.getQueue().add("download");
+        }
     }
 
-//    private List<Path> walkDirectory(Path path) {
-//        List<Path> list = new ArrayList<>();
-//        try {
-//            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-//                @Override
-//                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-//                    list.addAll(Files.list(dir).collect(Collectors.toList()));
-//                    return FileVisitResult.CONTINUE;
-//                }
-//            });
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        return list;
-//    }
+    /**
+     *
+     * @param path
+     * @return
+     */
+    private List<Path> walkDirectory(Path path) {
+        List<Path> list = new ArrayList<>();
+        try {
+            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    list.addAll(Files.list(dir).map(p -> truncationPath(p, path)).
+                            filter(p -> p != null).collect(Collectors.toList()));
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    private Path truncationPath(Path path, Path source) {
+        return  path.subpath(source.getNameCount(), path.getNameCount());
+
+    }
 }

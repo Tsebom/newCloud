@@ -14,9 +14,7 @@ import javafx.stage.Stage;
 
 import javax.swing.*;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -31,10 +29,9 @@ public class ServerController implements Initializable {
     private static Stage stage;
 
     private ClientConnect connect;
-    private Path root;
 
     List<FileInfo> listFile;
-    private String selectedFile;
+    private String selected;
     private String selectFileForCopy;
 
     @FXML
@@ -172,18 +169,18 @@ public class ServerController implements Initializable {
     }
 
     public void deleteFile(ActionEvent actionEvent) {
-        selectedFile = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
+        selected = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "You are going to delete " + selectedFile + " from server! You are sure?" ,
+                "You are going to delete " + selected + " from server! You are sure?" ,
                 ButtonType.NO, ButtonType.YES);
         Optional<ButtonType> option = alert.showAndWait();
         if (option.get() == ButtonType.YES) {
-            connect.getQueue().add("delete ".concat(selectedFile));
+            connect.getQueue().add("delete ".concat(selected));
         }
     }
 
     public void renameFile(ActionEvent actionEvent) {
-        selectedFile = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
+        selected = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
         String rename = JOptionPane.showInputDialog("Type the new name");
         if (rename != null && !rename.equals("")) {
             if (isNameFile(rename)) {
@@ -191,7 +188,7 @@ public class ServerController implements Initializable {
                         "The file's name already exist!" , ButtonType.CANCEL);
                 alert.showAndWait();
             } else {
-                connect.getQueue().add("rename ".concat(selectedFile + " " +rename));
+                connect.getQueue().add("rename ".concat(selected + " " +rename));
             }
         }
     }

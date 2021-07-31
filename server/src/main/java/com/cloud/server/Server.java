@@ -28,6 +28,7 @@ public class Server {
 
     private static final int PORT = 5679;
     private static final String IP_ADRESS = "localhost";
+    private static final int BUFFER_SIZE = 1460;
     private static final int TIMEOUT = 3000;
 
     private ServerSocketChannel server;
@@ -55,7 +56,7 @@ public class Server {
             server.configureBlocking(false);
 
             selector = Selector.open();
-            server.register(selector, SelectionKey.OP_ACCEPT, ByteBuffer.allocate(1460));
+            server.register(selector, SelectionKey.OP_ACCEPT, ByteBuffer.allocate(BUFFER_SIZE));
             connectDataBase();
             logger.info("Server has started.");
             setAllPrepareStatement();
