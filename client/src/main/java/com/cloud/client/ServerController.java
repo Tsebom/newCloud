@@ -100,6 +100,16 @@ public class ServerController implements Initializable {
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
+
+        Platform.runLater(() -> {
+            stage.setOnCloseRequest((event) -> {
+                if (connect == null) {
+                    Platform.exit();
+                } else if (connect != null) {
+                    connect.getQueue().add("disconnect");
+                }
+            });
+        });
     }
 
     public FileInfo getSelectedFile() {
@@ -162,8 +172,7 @@ public class ServerController implements Initializable {
 
     public void selectDirectory(MouseEvent mouseEvent) {
         if (mouseEvent.getClickCount() == 1) {
-            selected = Paths.get(pathField.getText()).resolve(
-                    ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()).toString();
+            selected = Paths.get(((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()).toString();
         } else if (mouseEvent.getClickCount() == 2) {
             connect.getQueue().add("moveTo ".concat(
                     ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()));

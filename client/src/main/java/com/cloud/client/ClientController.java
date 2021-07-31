@@ -98,16 +98,6 @@ public class ClientController implements Initializable {
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
-
-        Platform.runLater(() -> {
-            stage.setOnCloseRequest((event) -> {
-                if (connect == null) {
-                    Platform.exit();
-                } else if (connect != null) {
-                    connect.getQueue().add("disconnect");
-                }
-            });
-        });
     }
 
     public Path getSelectedFileForUpload() {

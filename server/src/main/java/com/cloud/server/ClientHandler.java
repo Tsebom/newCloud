@@ -29,6 +29,8 @@ public class ClientHandler {
     private Path currentPath;
     private Path selectFileForCopy;
     private Path selectFileForCut;
+    private Path selectFileForRename;
+    private Path selectFileForDelete;
 
     public ClientHandler(Server server, SelectionKey key, SocketChannel channel, String userName) {
         this.userName = userName;
