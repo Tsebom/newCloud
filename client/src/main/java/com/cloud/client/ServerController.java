@@ -14,7 +14,7 @@ import javafx.stage.Stage;
 
 import javax.swing.*;
 import java.net.URL;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +32,10 @@ public class ServerController implements Initializable {
 
     List<FileInfo> listFile;
     private String selected;
-    private String selectFileForCopy;
+    private String selectedFileForCopy;
+    private String selectedFileForCut;
+    private String selectedFileForRename;
+    private String selectedFileForDelete;
 
     @FXML
     public TextField pathField;
@@ -158,9 +161,13 @@ public class ServerController implements Initializable {
     }
 
     public void selectDirectory(MouseEvent mouseEvent) {
-        if (mouseEvent.getClickCount() == 2) {
+        if (mouseEvent.getClickCount() == 1) {
+            selected = Paths.get(pathField.getText()).resolve(
+                    ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()).toString();
+        } else if (mouseEvent.getClickCount() == 2) {
             connect.getQueue().add("moveTo ".concat(
                     ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()));
+            selected = null;
         }
     }
 
@@ -169,27 +176,73 @@ public class ServerController implements Initializable {
     }
 
     public void deleteFile(ActionEvent actionEvent) {
-        selected = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "You are going to delete " + selected + " from server! You are sure?" ,
-                ButtonType.NO, ButtonType.YES);
-        Optional<ButtonType> option = alert.showAndWait();
-        if (option.get() == ButtonType.YES) {
-            connect.getQueue().add("delete ".concat(selected));
+        if (selected != null) {
+            selectedFileForDelete = selected;
+            selected = null;
+
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                    "You are going to delete " + selectedFileForDelete + " from server! You are sure?" ,
+                    ButtonType.NO, ButtonType.YES);
+            Optional<ButtonType> option = alert.showAndWait();
+            if (option.get() == ButtonType.YES) {
+                connect.getQueue().add("delete ".concat(selectedFileForDelete));
+            }
+            selectedFileForDelete = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
         }
     }
 
     public void renameFile(ActionEvent actionEvent) {
-        selected = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
-        String rename = JOptionPane.showInputDialog("Type the new name");
-        if (rename != null && !rename.equals("")) {
-            if (isNameFile(rename)) {
-                Alert alert = new Alert(Alert.AlertType.WARNING,
-                        "The file's name already exist!" , ButtonType.CANCEL);
-                alert.showAndWait();
-            } else {
-                connect.getQueue().add("rename ".concat(selected + " " +rename));
+        if (selected != null) {
+            selectedFileForDelete = selected;
+            selected = null;
+
+            String rename = JOptionPane.showInputDialog("Type the new name");
+            if (rename != null && !rename.equals("")) {
+                if (isNameFile(rename)) {
+                    Alert alert = new Alert(Alert.AlertType.WARNING,
+                            "The file's name already exist!" , ButtonType.CANCEL);
+                    alert.showAndWait();
+                } else {
+                    connect.getQueue().add("rename ".concat(selectedFileForRename + " " +rename));
+                }
             }
+            selectedFileForRename = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
+        }
+    }
+
+    public void copyFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFileForCopy = selected;
+            selected = null;
+
+            connect.getQueue().add("copy ".concat(selectedFileForCopy));
+            selectedFileForCopy = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
+        }
+    }
+
+    public void pasteFile(ActionEvent actionEvent) {
+        connect.getQueue().add("past");
+    }
+
+    public void cutFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFileForCut = selected;
+            selected = null;
+
+            connect.getQueue().add("cut ".concat(selectedFileForCut));
+            selectedFileForCut = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
         }
     }
 
@@ -213,15 +266,6 @@ public class ServerController implements Initializable {
         this.isTryRegistration = !isTryRegistration;
     }
 
-    public void copyFile(ActionEvent actionEvent) {
-        selectFileForCopy = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
-        connect.getQueue().add("copy ".concat(selectFileForCopy));
-    }
-
-    public void pasteFile(ActionEvent actionEvent) {
-        connect.getQueue().add("past");
-    }
-
     private boolean isNameFile(String nameFile) {
         for (FileInfo f : listFile) {
             if (f.getFilename().equals(nameFile)) {
@@ -229,10 +273,5 @@ public class ServerController implements Initializable {
             }
         }
         return false;
-    }
-
-    public void cutFile(ActionEvent actionEvent) {
-        selectFileForCopy = ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename();
-        connect.getQueue().add("cut ".concat(selectFileForCopy));
     }
 }
