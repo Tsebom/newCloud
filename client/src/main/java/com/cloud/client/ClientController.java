@@ -229,7 +229,7 @@ public class ClientController implements Initializable {
                             StandardCopyOption.REPLACE_EXISTING);
                 }
             } else {
-                Files.copy(source, target.resolve(source.getFileName()));
+                Files.copy(source, target);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -239,6 +239,7 @@ public class ClientController implements Initializable {
     private void copyDirectory(Path source, Path target) {
         try {
             target = target.resolve(source.getFileName());
+            //ERROR
             Files.createDirectory(target);
             List<Path> list = walkDirectory(source);
             logger.info(list.toString());
@@ -253,7 +254,7 @@ public class ClientController implements Initializable {
                 if (Files.isDirectory(s)) {
                     Files.createDirectory(t);
                 } else if (!Files.isDirectory(s)) {
-                    Files.createFile(t);
+                    copyFile(s, t);
                 }
             }
         } catch (IOException e) {
@@ -280,7 +281,6 @@ public class ClientController implements Initializable {
                     e.printStackTrace();
                 }
             }
-
         } else {
             alertWarning("No one file was selected");
             return;

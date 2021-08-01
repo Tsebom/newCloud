@@ -7,10 +7,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -29,8 +28,6 @@ public class ClientHandler {
     private Path currentPath;
     private Path selectFileForCopy;
     private Path selectFileForCut;
-    private Path selectFileForRename;
-    private Path selectFileForDelete;
 
     public ClientHandler(Server server, SelectionKey key, SocketChannel channel, String userName) {
         this.userName = userName;
@@ -68,7 +65,6 @@ public class ClientHandler {
                 }
                 buf.clear();
                 logger.info("the end read data from the channel: " + clientAddress);
-                //server.getProcessing().remove(clientAddress);
                 processing(sb.toString());
             } catch (IOException e) {
                 e.printStackTrace();
@@ -187,17 +183,17 @@ public class ClientHandler {
         } else if (command.equals("moveBack")) {
             moveBack();
         } else if (command.startsWith("copy")) {
-            copyFile(command);
+            setSelectCopyFile(command);
         } else if (command.equals("past")) {
-            pastFile();
+            pastFileOrDir();
         } else if (command.startsWith("cut")) {
-            cutFile(command);
+            setSelectCutFile(command);
         } else if (command.startsWith("create")) {
             createFileOrDirectory(command);
         } else if (command.startsWith("rename")) {
             renameFile(command);
         } else if (command.startsWith("delete")) {
-            deleteFile(command);
+            deleteFileOrDirectory(currentPath.resolve(command.substring("delete ".length())));
         } else if (command.equals("disconnect")) {
             breakConnect();
         }
@@ -224,37 +220,78 @@ public class ClientHandler {
         writeFile(currentPath.resolve(token[1]));
     }
 
-    private void copyFile(String command) {
+    private void setSelectCopyFile(String command) {
         selectFileForCopy = currentPath.resolve(command.substring("copy ".length()));
+        logger.info("selectFileForCopy is " +  selectFileForCopy);
         server.getProcessing().remove(clientAddress);
     }
 
-    private void cutFile(String command) {
+    private void setSelectCutFile(String command) {
         selectFileForCut = currentPath.resolve(command.substring("cut ".length()));
+        logger.info("selectFileForCut is " +  selectFileForCut);
         server.getProcessing().remove(clientAddress);
     }
 
-    private void pastFile() {
+    private void pastFileOrDir() {
+        logger.info("past");
+
+        if (selectFileForCopy != null && selectFileForCut == null) {
+            pastCopyFileOrDir(selectFileForCopy);
+            selectFileForCopy = null;
+        } else if (selectFileForCopy == null && selectFileForCut != null) {
+            pastCopyFileOrDir(selectFileForCut);
+            deleteFileOrDirectory(selectFileForCut);
+            selectFileForCut = null;
+            return; //to don't invoke twice sendData("ok")
+        } else {
+            server.getProcessing().remove(channel);
+        }
+        sendData("ok");
+    }
+
+    private void pastCopyFileOrDir(Path source) {
+        logger.info("past fod");
+        Path target = currentPath.resolve(source.getFileName());
+
+        if (!Files.isDirectory(source)) {
+            copyFile(source, target);
+        }else if (Files.isDirectory(source)) {
+            copyDirectory(source, target);
+        }
+    }
+
+    private void copyDirectory(Path source, Path target) {
+        logger.info("start copy dir");
         try {
-            if (selectFileForCopy != null && selectFileForCut == null) {
-                if (!Files.exists(currentPath.resolve(selectFileForCopy.getFileName()))) {
-                    Files.copy(selectFileForCopy, currentPath.resolve(selectFileForCopy.getFileName()));
-                    selectFileForCopy = null;
-                    sendData("ok");
-                } else {
-                    sendData("alert The file name is exist");
+            //ERROR
+            Files.createDirectory(target);
+            List<Path> list = walkDirectory(source);
+            logger.info(list.toString());
+            if (list.isEmpty()) {
+                return;
+            }
+            Collections.sort(list);
+
+            for (Path p : list) {
+                Path s = source.resolve(p);
+                Path t = target.resolve(p);
+                if (Files.isDirectory(s)) {
+                    Files.createDirectory(t);
+                } else if (!Files.isDirectory(s)) {
+                    copyFile(s, t);
                 }
-            } else if (selectFileForCopy == null && selectFileForCut != null) {
-                if (!Files.exists(currentPath.resolve(selectFileForCut.getFileName()))) {
-                    Files.copy(selectFileForCut, currentPath.resolve(selectFileForCut.getFileName()));
-                    Files.delete(selectFileForCut);
-                    selectFileForCut = null;
-                    sendData("ok");
-                } else {
-                    sendData("alert The file name is exist");
-                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void copyFile(Path source, Path target) {
+        try {
+            if (Files.exists(target)) {
+                sendData("alert The file name is exist");
             } else {
-                server.getProcessing().remove(channel);
+                Files.copy(source, target);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -280,13 +317,49 @@ public class ClientHandler {
         }
     }
 
-    private void deleteFile(String command) {
+    private void deleteFileOrDirectory(Path target) {
         try {
-            Files.delete(currentPath.resolve(command.substring("delete ".length())));
+            if (!Files.isDirectory(target)) {
+                Files.delete(target);
+            } else if (Files.isDirectory(target)) {
+                deleteDirectory(target);
+            }
             sendData("ok");
         } catch (IOException e) {
             e.printStackTrace();
             sendData("alert File cannot be deleted");
+        }
+    }
+
+    private void deleteDirectory(Path path) {
+        try {
+            List<Path> list = walkDirectory(path);
+
+            if (!list.isEmpty()) {
+                Collections.sort(list);
+                Collections.reverse(list);
+            } else {
+                Files.delete(path);
+                return;
+            }
+
+            while (!list.isEmpty()) {
+                Iterator<Path> iterator = list.iterator();
+                while (iterator.hasNext()) {
+                    Path p = iterator.next();
+                    Path t = path.resolve(p);
+                    if (!Files.isDirectory(t)) {
+                        Files.delete(t);
+                    } else if (Files.isDirectory(t) && walkDirectory(t).isEmpty()) {
+                        Files.delete(t);
+                    }
+                    iterator.remove();
+                    list.remove(p);
+                }
+            }
+            Files.delete(path);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -348,5 +421,27 @@ public class ClientHandler {
             sendData("alert Can not update the files list");
         }
         return null;
+    }
+
+    private List<Path> walkDirectory(Path path) {
+        List<Path> list = new ArrayList<>();
+        try {
+            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    list.addAll(Files.list(dir).map(p -> truncationPath(p, path)).
+                            filter(p -> p != null).collect(Collectors.toList()));
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    private Path truncationPath(Path path, Path source) {
+        return  path.subpath(source.getNameCount(), path.getNameCount());
+
     }
 }
