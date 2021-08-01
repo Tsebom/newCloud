@@ -38,7 +38,7 @@
                 <Button maxWidth="Infinity" text="Cut" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#cutFileOrDir"/>
                 <Button maxWidth="Infinity" text="Paste" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#pasteFileOrDir"/>
                 <Button maxWidth="Infinity" text="Rename" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#renameFile"/>
-                <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#deleteFileOrDir"/>
+                <Button maxWidth="Infinity" text="Delete" HBox.hgrow="ALWAYS" focusTraversable="false" onAction="#deleteCommand"/>
             <padding>
                <Insets bottom="5.0" top="5.0" />
             </padding>

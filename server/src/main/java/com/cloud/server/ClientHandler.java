@@ -263,8 +263,9 @@ public class ClientHandler {
     private void copyDirectory(Path source, Path target) {
         logger.info("start copy dir");
         try {
-            //ERROR
-            Files.createDirectory(target);
+            if (!Files.exists(target)) {
+                Files.createDirectory(target);
+            }
             List<Path> list = walkDirectory(source);
             logger.info(list.toString());
             if (list.isEmpty()) {
@@ -276,7 +277,9 @@ public class ClientHandler {
                 Path s = source.resolve(p);
                 Path t = target.resolve(p);
                 if (Files.isDirectory(s)) {
-                    Files.createDirectory(t);
+                    if (!Files.exists(t)) {
+                        Files.createDirectory(t);
+                    }
                 } else if (!Files.isDirectory(s)) {
                     copyFile(s, t);
                 }

@@ -183,9 +183,12 @@ public class ClientController implements Initializable {
         Path path = Paths.get(pathField.getText());
 
         if (selectedFilePathForCopy != null && selectedFilePathForCut == null) {
-            pastCopyFileOrDir(path);
+            pastCopyFileOrDir(selectedFilePathForCopy, path);
+            selectedFilePathForCopy = null;
         } else if (selectedFilePathForCopy == null && selectedFilePathForCut != null) {
-            pastCutFileOrDir(path);
+            pastCopyFileOrDir(selectedFilePathForCut, path);
+            deleteFileOrDir(selectedFilePathForCut);
+            selectedFilePathForCut = null;
         } else {
             alertWarning("No one file was selected");
             return;
@@ -193,39 +196,23 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
-    private void pastCutFileOrDir(Path path) {
-        try {
-            if (!Files.isDirectory(selectedFilePathForCut)) {
-                copyFile(selectedFilePathForCopy, path);
-                Files.delete(selectedFilePathForCut);
-            }else if (Files.isDirectory(selectedFilePathForCut)) {
-                copyDirectory(selectedFilePathForCut, path);
-                deleteDirectory(selectedFilePathForCut);
-            }
-            selectedFilePathForCut = null;
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void pastCopyFileOrDir(Path source, Path target) {
+        if (!Files.isDirectory(source)) {
+            copyFile(source, target.resolve(source.getFileName()));
+        }else if (Files.isDirectory(source)) {
+            copyDirectory(source, target);
         }
-    }
-
-    private void pastCopyFileOrDir(Path path) {
-        if (!Files.isDirectory(selectedFilePathForCopy)) {
-            copyFile(selectedFilePathForCopy, path);
-        }else if (Files.isDirectory(selectedFilePathForCopy)) {
-            copyDirectory(selectedFilePathForCopy, path);
-        }
-        selectedFilePathForCopy = null;
     }
 
     private void copyFile(Path source, Path target) {
         try {
-            if (Files.exists(target.resolve(source.getFileName()))) {
+            if (Files.exists(target)) {
                 Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
                         "This file is exist. Do you want to continue",
                         ButtonType.YES, ButtonType.NO);
                 Optional<ButtonType> option = alert.showAndWait();
                 if (option.get() == ButtonType.YES) {
-                    Files.copy(source, target.resolve(source.getFileName()),
+                    Files.copy(source, target,
                             StandardCopyOption.REPLACE_EXISTING);
                 }
             } else {
@@ -239,8 +226,9 @@ public class ClientController implements Initializable {
     private void copyDirectory(Path source, Path target) {
         try {
             target = target.resolve(source.getFileName());
-            //ERROR
-            Files.createDirectory(target);
+            if (!Files.exists(target)) {
+                Files.createDirectory(target);
+            }
             List<Path> list = walkDirectory(source);
             logger.info(list.toString());
             if (list.isEmpty()) {
@@ -252,8 +240,11 @@ public class ClientController implements Initializable {
                 Path s = source.resolve(p);
                 Path t = target.resolve(p);
                 if (Files.isDirectory(s)) {
-                    Files.createDirectory(t);
+                    if (!Files.exists(t)) {
+                        Files.createDirectory(t);
+                    }
                 } else if (!Files.isDirectory(s)) {
+                    logger.info(target.toString());
                     copyFile(s, t);
                 }
             }
@@ -262,30 +253,33 @@ public class ClientController implements Initializable {
         }
     }
 
-    public void deleteFileOrDir(ActionEvent actionEvent) {
+    public void deleteCommand(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFilePathForDelete = selected;
             selected = null;
-
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure",
-                    ButtonType.YES, ButtonType.CANCEL);
-            Optional<ButtonType> option = alert.showAndWait();
-            if (option.get() == ButtonType.YES) {
-                try {
-                    if (!Files.isDirectory(selectedFilePathForDelete)) {
-                        Files.delete(selectedFilePathForDelete);
-                    } else if (Files.isDirectory(selectedFilePathForDelete)) {
-                        deleteDirectory(selectedFilePathForDelete);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+            deleteFileOrDir(selectedFilePathForDelete);
+            selectedFilePathForDelete = null;
         } else {
             alertWarning("No one file was selected");
             return;
         }
-        selectedFilePathForDelete = null;
+    }
+
+    public void deleteFileOrDir(Path target) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure",
+                ButtonType.YES, ButtonType.CANCEL);
+        Optional<ButtonType> option = alert.showAndWait();
+        if (option.get() == ButtonType.YES) {
+            try {
+                if (!Files.isDirectory(target)) {
+                    Files.delete(target);
+                } else if (Files.isDirectory(target)) {
+                    deleteDirectory(target);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         updateFileTable(Paths.get(pathField.getText()));
     }
 
