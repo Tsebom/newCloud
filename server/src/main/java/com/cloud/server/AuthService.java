@@ -17,5 +17,10 @@ public interface AuthService {
      */
     boolean isRegistration(String login, String password);
 
+    /**
+     * Adding registration information about user
+     * @param login - the login of the user
+     * @param password - the password of the user
+     */
     void setRegistration(String login, String password);
 }

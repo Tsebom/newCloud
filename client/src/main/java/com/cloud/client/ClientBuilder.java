@@ -6,6 +6,9 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+/**
+ * Start Client
+ */
 public class ClientBuilder extends Application {
 
     @Override
@@ -14,7 +17,6 @@ public class ClientBuilder extends Application {
         primaryStage.setTitle("Cloud Authorization");
         primaryStage.setScene(new Scene(root, 1400, 800));
         primaryStage.show();
-        ClientController.setStage(primaryStage);
         ServerController.setStage(primaryStage);
     }
 

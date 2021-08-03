@@ -27,9 +27,9 @@ public class AcceptHandler implements Runnable {
     private String command = "";
 
     /**
-     * Initializes a new instance of this class.
-     * @param server
-     * @param key
+     * Initializes a new instance of AcceptHandler class.
+     * @param server - link to the instance Sever class
+     * @param key -
      */
     public AcceptHandler(Server server, SelectionKey key) {
         this.server = server;
@@ -60,14 +60,12 @@ public class AcceptHandler implements Runnable {
                     if (!command.equals("")) {
                         logger.info("client " + clientAddress + " has sent: " + command);
                         String[] token = command.split(" ");
-                        //check valid data
                         if (token.length < 3) {
-                            //disconnect
                             if (command.equals("disconnect")) {
                                 channel.close();
                                 break;
                             }
-                            sendData("alert_fail_data The login or the password is not correct");
+                            serializeData("alert_fail_data The login or the password is not correct");
                             command = "";
                             continue;
                         }
@@ -78,20 +76,20 @@ public class AcceptHandler implements Runnable {
                                 server.getMapAuthUser().put(clientAddress,
                                         new ClientHandler(server, key, channel, server.getAuthService().
                                                 getNickNameByLoginAndPassword(token[1], token[2])));
-                                sendData("auth_ok");
+                                serializeData("auth_ok");
                                 logger.info("client " + clientAddress + " has got authorization");
                                 command = "";
                                 break;
                             } else {
                                 logger.info("client " + clientAddress + " hasn't got authorization");
-                                sendData("alert_fail_auth The login or the password is not correct");
+                                serializeData("alert_fail_auth The login or the password is not correct");
                                 command = "";
                             }
                         } else if (command.startsWith("reg")) {
                             logger.info("client " + clientAddress + " has requested registration");
                             if (server.getAuthService().isRegistration(token[1], token[2])) {
                                 logger.info("client " + clientAddress + " hasn't got registration");
-                                sendData("alert_fail_reg This user already exist");
+                                serializeData("alert_fail_reg This user already exist");
                                 command = "";
                             } else {
                                 server.getAuthService().setRegistration(token[1], token[2]);
@@ -99,7 +97,7 @@ public class AcceptHandler implements Runnable {
                                 server.getMapAuthUser().put(clientAddress,
                                         new ClientHandler(server, key, channel, server.getAuthService().
                                                 getNickNameByLoginAndPassword(token[1], token[2])));
-                                sendData("reg_ok");
+                                serializeData("reg_ok");
                                 logger.info("client " + clientAddress + " has got registration");
                                 command = "";
                                 break;
@@ -120,7 +118,7 @@ public class AcceptHandler implements Runnable {
     }
 
     /**
-     *
+     *  Read data from the channel
      */
     public void read() {
         if (channel.isOpen()) {
@@ -128,13 +126,11 @@ public class AcceptHandler implements Runnable {
             ByteBuffer buf = (ByteBuffer) key.attachment();
             try {
                 int bytesRead = channel.read(buf);
-
                 if (bytesRead < 0) {
                     channel.close();
                 } else if (bytesRead == 0) {
                     return;
                 }
-
                 buf.flip();
                 StringBuilder sb = new StringBuilder();
                 while (buf.hasRemaining()) {
@@ -142,7 +138,6 @@ public class AcceptHandler implements Runnable {
                 }
                 buf.clear();
                 logger.info("the end read data from the channel: " + clientAddress);
-
                 newCommand(sb.toString());
             } catch (IOException e) {
                 e.printStackTrace();
@@ -151,8 +146,8 @@ public class AcceptHandler implements Runnable {
     }
 
     /**
-     *
-     * @param data
+     * Write data to the channel
+     * @param data - source the data
      */
     private void  write(byte[] data) {
         ByteBuffer buf = (ByteBuffer) key.attachment();
@@ -176,7 +171,7 @@ public class AcceptHandler implements Runnable {
     }
 
     /**
-     *
+     * Synchronized method is setting thread for waiting new command
      */
     private synchronized void waitCommand() {
         while (command.equals("")) {
@@ -191,18 +186,22 @@ public class AcceptHandler implements Runnable {
     }
 
     /**
-     *
-     * @param command
+     * Weak up thread for processing a new command
+     * @param command - the command
      */
     private synchronized void newCommand(String command) {
         if (command.equals("disconnect")) {
-            sendData("disconnect");
+            serializeData("disconnect");
         }
         this.command = command;
         notify();
     }
 
-    private void sendData(Object ob) {
+    /**
+     * Serialize a data for writing the data to the channel
+     * @param ob
+     */
+    private void serializeData(Object ob) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ObjectOutputStream oos = new ObjectOutputStream(baos);

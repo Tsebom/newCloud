@@ -1,32 +1,20 @@
 package com.cloud.client;
 
 import com.cloud.server.FileInfo;
-import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseEvent;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
-import javafx.stage.WindowEvent;
-
 
 import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.URL;
-import java.nio.channels.SocketChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileAttribute;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.logging.Logger;
@@ -41,8 +29,6 @@ public class ClientController implements Initializable {
     public ComboBox disks;
     @FXML
     TableView fileTable;
-
-    private static Stage stage;
 
     private ClientConnect connect;
     private Path root;
@@ -104,10 +90,6 @@ public class ClientController implements Initializable {
         return selectedFileForUpload;
     }
 
-    public static void setStage(Stage stage) {
-        ClientController.stage = stage;
-    }
-
     public static void alertWarning(String warning) {
         Alert alert = new Alert(Alert.AlertType.WARNING, warning, ButtonType.OK);
         alert.showAndWait();
@@ -146,16 +128,19 @@ public class ClientController implements Initializable {
     }
 
     public void selectDirectoryOrFile(MouseEvent mouseEvent) {
+        FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
         if (mouseEvent.getClickCount() == 1) {
-            selected = Paths.get(pathField.getText()).resolve(
-                    ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        } else if (mouseEvent.getClickCount() == 2) {
-            Path path = Paths.get(pathField.getText()).resolve(
-                    ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-            if (Files.isDirectory(path)) {
-                updateFileTable(path);
+            if (fileInfo != null) {
+                selected = Paths.get(pathField.getText()).resolve(fileInfo.getFilename());
             }
-            selected = null;
+        } else if (mouseEvent.getClickCount() == 2) {
+            if (fileInfo != null) {
+                Path path = Paths.get(pathField.getText()).resolve((fileInfo).getFilename());
+                if (Files.isDirectory(path)) {
+                    updateFileTable(path);
+                }
+                selected = null;
+            }
         }
     }
 
@@ -378,9 +363,7 @@ public class ClientController implements Initializable {
             connect = ClientConnect.getInstance();
             connect.setClientController(this);
         }
-        if (fileTable.getSelectionModel().getSelectedItem() != null) {
-            connect.getQueue().add("download");
-        }
+        connect.getQueue().add("download");
     }
 
     /**
@@ -407,6 +390,5 @@ public class ClientController implements Initializable {
 
     private Path truncationPath(Path path, Path source) {
         return  path.subpath(source.getNameCount(), path.getNameCount());
-
     }
 }

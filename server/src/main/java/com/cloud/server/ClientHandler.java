@@ -13,6 +13,9 @@ import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+/**
+ * The ClientHandler implements the processing of commands from users
+ */
 public class ClientHandler {
     private String userName;
 
@@ -46,7 +49,7 @@ public class ClientHandler {
     }
 
     /**
-     *
+     * Read data from channel
      */
     public void read() {
         if (channel.isOpen()) {
@@ -73,12 +76,11 @@ public class ClientHandler {
     }
 
     /**
-     *
-     * @param key
-     * @param pathFile
-     * @param sizeFile
+     * Reading the data when user send file to server
+     * @param pathFile - the path to file where data writing from channel
+     * @param sizeFile - the size of file
      */
-    private void readFile(SelectionKey key, Path pathFile, long sizeFile) {
+    private void readFile(Path pathFile, long sizeFile) {
         logger.info("start download file");
         try {
             server.getProcessing().add(clientAddress);
@@ -90,7 +92,6 @@ public class ClientHandler {
             while (size < sizeFile) {
 
                 size += channel.read(buff);
-                logger.info(String.valueOf(size) + " " + String.valueOf(sizeFile));
 
                 buff.flip();
                 while (buff.hasRemaining()) {
@@ -98,7 +99,7 @@ public class ClientHandler {
                 }
                 buff.compact();
             }
-            sendData("ok");
+            serializeBeforeSendData("ok");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -107,8 +108,8 @@ public class ClientHandler {
     }
 
     /**
-     *
-     * @param data
+     * Writing the data to the channel
+     * @param data - the data for writing
      */
     private void  write(byte[] data) {
         ByteBuffer buff = (ByteBuffer) key.attachment();
@@ -133,8 +134,8 @@ public class ClientHandler {
     }
 
     /**
-     *
-     * @param
+     * Writing the file  when user download file from server
+     * @param path - the path to target file
      */
     private void  writeFile(Path path) {
         logger.info("start sending " + path);
@@ -155,7 +156,7 @@ public class ClientHandler {
             }
         } catch (FileNotFoundException e) {
             e.printStackTrace();
-            sendData("alert This file is not exist");
+            serializeBeforeSendData("alert This file is not exist");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -164,16 +165,16 @@ public class ClientHandler {
     }
 
     /**
-     *
-     * @param command
+     * Method processing commands coming from client
+     * @param command - the command coming from client
      */
     private void processing(String command) {
         logger.info(clientAddress + " send command: " + command);
         if (command.equals("getUpdateFileTable")){
-            sendData(updateFileTable(currentPath));
+            serializeBeforeSendData(updateFileTable(currentPath));
         } else if (command.equals("getPathField")) {
             String s = currentPath.toString();
-            sendData(s.replace(root.resolve("users") + File.separator, ""));
+            serializeBeforeSendData(s.replace(root.resolve("users") + File.separator, ""));
         } else if (command.startsWith("download")) {
             downloadFile(command);
         } else if (command.startsWith("upload")) {
@@ -199,42 +200,60 @@ public class ClientHandler {
         }
     }
 
+    /**
+     *  This method prepared server for accept the file
+     * @param command - the command with information about the file
+     */
     private void uploadFile(String command) {
         String[] token = command.split(" ");
         if (Files.exists(currentPath.resolve(token[1]))) {
-            sendData("alert This file is exist");
+            serializeBeforeSendData("alert This file is exist");
         } else {
             try {
                 Files.createFile(currentPath.resolve(token[1]));
-                sendData("ready_for_get_file");
+                serializeBeforeSendData("ready_for_get_file");
                 long size = Long.parseLong(token[2]);
-                readFile(key, currentPath.resolve(token[1]), size);
+                readFile(currentPath.resolve(token[1]), size);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
+    /**
+     * Send the file to the client
+     * @param command - the information about the requested file
+     */
     private void downloadFile(String command) {
         String[] token = command.split(" ");
         writeFile(currentPath.resolve(token[1]));
     }
 
+    /**
+     * Seting path of selected file for copy
+     * @param command - the name of selected file
+     */
     private void setSelectCopyFile(String command) {
         selectFileForCopy = currentPath.resolve(command.substring("copy ".length()));
         logger.info("selectFileForCopy is " +  selectFileForCopy);
         server.getProcessing().remove(clientAddress);
     }
 
+    /**
+     * Seting path of selected file for cut
+     * @param command - the name of selected file
+     */
     private void setSelectCutFile(String command) {
         selectFileForCut = currentPath.resolve(command.substring("cut ".length()));
         logger.info("selectFileForCut is " +  selectFileForCut);
         server.getProcessing().remove(clientAddress);
     }
 
+    /**
+     * Defines operation (cut or copy) requested by client
+     */
     private void pastFileOrDir() {
         logger.info("past");
-
         if (selectFileForCopy != null && selectFileForCut == null) {
             pastCopyFileOrDir(selectFileForCopy);
             selectFileForCopy = null;
@@ -246,9 +265,13 @@ public class ClientHandler {
         } else {
             server.getProcessing().remove(channel);
         }
-        sendData("ok");
+        serializeBeforeSendData("ok");
     }
 
+    /**
+     * Ending the command of copy
+     * @param source - the path to the copying file
+     */
     private void pastCopyFileOrDir(Path source) {
         logger.info("past fod");
         Path target = currentPath.resolve(source.getFileName());
@@ -260,6 +283,11 @@ public class ClientHandler {
         }
     }
 
+    /**
+     * implementing copying of directory
+     * @param source - the path to source directory
+     * @param target - the path to target coping directory
+     */
     private void copyDirectory(Path source, Path target) {
         logger.info("start copy dir");
         try {
@@ -289,10 +317,15 @@ public class ClientHandler {
         }
     }
 
+    /**
+     *  Coping file
+     * @param source - the path to source file
+     * @param target - the path to target of copy
+     */
     private void copyFile(Path source, Path target) {
         try {
             if (Files.exists(target)) {
-                sendData("alert The file name is exist");
+                serializeBeforeSendData("alert The file name is exist");
             } else {
                 Files.copy(source, target);
             }
@@ -301,25 +334,36 @@ public class ClientHandler {
         }
     }
 
+    /**
+     * Implementing a command to move back along directory
+     */
     private void moveBack() {
         if (!currentPath.equals(root.resolve("users").resolve(userName))) {
             currentPath = currentPath.getParent();
-            sendData(updateFileTable(currentPath));
+            serializeBeforeSendData(updateFileTable(currentPath));
         } else {
-            sendData("ok");
+            serializeBeforeSendData("ok");
         }
     }
 
+    /**
+     * Implementing a command to move a selected directory
+     * @param command - the name selected directory
+     */
     private void moveTo(String command) {
         currentPath = currentPath.resolve(command.substring("moveTo ".length()));
         if (Files.isDirectory(currentPath)) {
-            sendData(updateFileTable(currentPath));
+            serializeBeforeSendData(updateFileTable(currentPath));
         } else {
             currentPath = currentPath.getParent();
-            sendData("alert This is not directory");
+            serializeBeforeSendData("alert This is not directory");
         }
     }
 
+    /**
+     * Implementing a request to delete a directory or file
+     * @param target - the target file or directory
+     */
     private void deleteFileOrDirectory(Path target) {
         try {
             if (!Files.isDirectory(target)) {
@@ -327,13 +371,17 @@ public class ClientHandler {
             } else if (Files.isDirectory(target)) {
                 deleteDirectory(target);
             }
-            sendData("ok");
+            serializeBeforeSendData("ok");
         } catch (IOException e) {
             e.printStackTrace();
-            sendData("alert File cannot be deleted");
+            serializeBeforeSendData("alert File cannot be deleted");
         }
     }
 
+    /**
+     * Implementing a request delete a directory or file
+     * @param path - the path to the target directory
+     */
     private void deleteDirectory(Path path) {
         try {
             List<Path> list = walkDirectory(path);
@@ -366,34 +414,45 @@ public class ClientHandler {
         }
     }
 
+    /**
+     * Create a fle or a directory
+     * @param command - the name of the file or directory
+     */
     private void createFileOrDirectory(String command) {
         try {
             if (command.startsWith("create_file")) {
                 Files.createFile(Paths.get(currentPath.resolve(
                         command.substring("create_file ".length())).toString()));
-                sendData("ok");
+                serializeBeforeSendData("ok");
             } else if (command.startsWith("create_dir")) {
                 Files.createDirectory(Paths.get(currentPath.resolve(
                         command.substring("create_file ".length())).toString()));
-                sendData("ok");
+                serializeBeforeSendData("ok");
             }
         } catch (IOException e) {
             e.printStackTrace();
-            sendData("alert File cannot be create");
+            serializeBeforeSendData("alert File cannot be create");
         }
     }
 
+    /**
+     * Renaming selected a file or a directory
+     * @param command - the old and the new name of the file or directory
+     */
     private void renameFile(String command) {
         String[] token = command.split(" ");
         File currentName = new File(currentPath.resolve(token[1]).toString());
         File newName = new File(currentPath.resolve(token[2]).toString());
         currentName.renameTo(newName);
-        sendData("ok");
+        serializeBeforeSendData("ok");
     }
 
+    /**
+     * Implementing a request disconnect client
+     */
     private void breakConnect() {
         try {
-            sendData("disconnect");
+            serializeBeforeSendData("disconnect");
             server.getMapAuthUser().remove(clientAddress);
             if (!server.getMapAuthUser().containsKey(clientAddress)) {
                 logger.info("ClientHandler was deleted: " + clientAddress);
@@ -404,7 +463,11 @@ public class ClientHandler {
         }
     }
 
-    private void sendData(Object ob) {
+    /**
+     * Serialize object before sending to client
+     * @param ob - the target object
+     */
+    private void serializeBeforeSendData(Object ob) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -416,16 +479,26 @@ public class ClientHandler {
         }
     }
 
+    /**
+     * Implementing a request for update the list of server files
+     * @param path - the target a directory
+     * @return - the list of FileInfo class contenting information about the files inside this directory
+     */
     private List<FileInfo> updateFileTable (Path path) {
         try {
             return Files.list(path).map(FileInfo::new).collect(Collectors.toList());
         } catch (IOException e) {
             e.printStackTrace();
-            sendData("alert Can not update the files list");
+            serializeBeforeSendData("alert Can not update the files list");
         }
         return null;
     }
 
+    /**
+     * Detouring content of target directory
+     * @param path - the path to the target directory
+     * @return - the list of path the files consisting into directory
+     */
     private List<Path> walkDirectory(Path path) {
         List<Path> list = new ArrayList<>();
         try {
@@ -443,6 +516,12 @@ public class ClientHandler {
         return list;
     }
 
+    /**
+     * Cutting redundant part the path of file for further processing
+     * @param path - the previous path
+     * @param source - the redundant path
+     * @return - the required path
+     */
     private Path truncationPath(Path path, Path source) {
         return  path.subpath(source.getNameCount(), path.getNameCount());
 

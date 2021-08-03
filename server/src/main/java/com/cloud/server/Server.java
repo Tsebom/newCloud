@@ -18,6 +18,9 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+/**
+ * The Server class implements interact with clients
+ */
 public class Server {
     protected static final Logger logger = Logger.getLogger(Server.class.getName());
     private static final LogManager logmanager = LogManager.getLogManager();
@@ -148,8 +151,9 @@ public class Server {
     private void connectDataBase(){
         try {
             Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection("jdbc:sqlite:RegBase.db");
+            connection = DriverManager.getConnection("jdbc:sqlite:server/src/main/resources/RegBase.db");
             statement = connection.createStatement();
+            logger.info(statement.toString());
             logger.info("server has connected to RegBase");
         } catch (ClassNotFoundException e) {
             logger.log(Level.SEVERE, "class \"org.sqlite.JDBC\" hasn't be find", e);

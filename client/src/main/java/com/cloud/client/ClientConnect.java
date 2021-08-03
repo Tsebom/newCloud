@@ -17,6 +17,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+/**
+ *
+ */
 public class ClientConnect implements Runnable{
     private static ClientConnect instance;
 
@@ -64,6 +67,7 @@ public class ClientConnect implements Runnable{
                 if (breakClientConnect) {
                     channel.close();
                     selector.close();
+                    logger.info("break");
                     break;
                 }
                 if (selector.isOpen()) {
@@ -140,7 +144,6 @@ public class ClientConnect implements Runnable{
             }
             buf.clear();
 
-            //crutch
             byte[] b = new byte[list.size()];
             for (int i = 0; i < list.size(); i++) {
                 b[i] = list.get(i);
@@ -164,7 +167,6 @@ public class ClientConnect implements Runnable{
             while (size < fileInfo.getSize()) {
 
                 size += channel.read(buff);
-//                logger.info(size + " " + fileInfo.getSize());
 
                 buff.flip();
                 while (buff.hasRemaining()) {
@@ -206,19 +208,33 @@ public class ClientConnect implements Runnable{
     }
 
     private void downloadFile(SelectionKey key) {
-        FileInfo fileInfo = serverController.getSelectedFile();
-        Path pathFile = Paths.get(clientController.pathField.getText()).resolve(fileInfo.getFilename());
         try {
-            if (!Files.exists(pathFile)) {
-                String command = "download " + fileInfo.getFilename();
-                channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
-                Files.createFile(pathFile);
-                readFile(key, pathFile, fileInfo);
-            } else {
-                Platform.runLater(() -> ClientController.alertWarning("This file is exist"));
+            String filename = serverController.getSelected();
+            if (filename == null) {
+                Platform.runLater(() -> ClientController.
+                        alertWarning("No one file was selected"));
+                return;
+            }
+            for (FileInfo f: serverController.getListFile()) {
+                if (f.getFilename().equals(filename)) {
+                    FileInfo fileInfo = f;
+                    Path pathFile = Paths.get(clientController.pathField.getText()).resolve(fileInfo.getFilename());
+                    if (!Files.exists(pathFile)) {
+                        String command = "download " + fileInfo.getFilename();
+                        channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
+                        Files.createFile(pathFile);
+                        readFile(key, pathFile, fileInfo);
+                    } else {
+                        Platform.runLater(() -> ClientController.alertWarning("This file is exist"));
+                    }
+                    serverController.setSelected(null);
+                    return;
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            serverController.setSelected(null);
         }
     }
 
@@ -264,6 +280,7 @@ public class ClientConnect implements Runnable{
         if (command.equals("disconnect")) {
             logger.info("disconnect confirmed");
             breakClientConnect = true;
+            Platform.runLater(() -> Platform.exit());
         }
     }
 

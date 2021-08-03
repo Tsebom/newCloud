@@ -112,8 +112,16 @@ public class ServerController implements Initializable {
         });
     }
 
-    public FileInfo getSelectedFile() {
-        return (FileInfo)fileTable.getSelectionModel().getSelectedItem();
+    public List<FileInfo> getListFile() {
+        return listFile;
+    }
+
+    public String getSelected() {
+        return selected;
+    }
+
+    public void setSelected(String selected) {
+        this.selected = selected;
     }
 
     public static void setStage(Stage stage) {
@@ -190,8 +198,8 @@ public class ServerController implements Initializable {
             selected = null;
 
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                    "You are going to delete " + selectedFileForDelete + " from server! You are sure?" ,
-                    ButtonType.NO, ButtonType.YES);
+                    "You are going to delete " + selectedFileForDelete + " from server! You are sure?",
+                    ButtonType.YES, ButtonType.NO);
             Optional<ButtonType> option = alert.showAndWait();
             if (option.get() == ButtonType.YES) {
                 connect.getQueue().add("delete ".concat(selectedFileForDelete));
