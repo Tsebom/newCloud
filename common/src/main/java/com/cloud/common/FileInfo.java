@@ -1,4 +1,4 @@
-package com.cloud.server;
+package com.cloud.common;
 
 import java.io.IOException;
 import java.io.Serializable;

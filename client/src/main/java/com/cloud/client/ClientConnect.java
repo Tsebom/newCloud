@@ -1,6 +1,6 @@
 package com.cloud.client;
 
-import com.cloud.server.FileInfo;
+import com.cloud.common.FileInfo;
 import javafx.application.Platform;
 
 import java.io.*;
@@ -127,6 +127,10 @@ public class ClientConnect implements Runnable{
         this.nameUser = nameUser;
     }
 
+    /**
+     *
+     * @param key
+     */
     public void read(SelectionKey key) {
         logger.info("the start reading data from the channel: " + serverAddress);
         ByteBuffer buf = (ByteBuffer) key.attachment();
@@ -156,6 +160,12 @@ public class ClientConnect implements Runnable{
         }
     }
 
+    /**
+     *
+     * @param key
+     * @param pathFile
+     * @param fileInfo
+     */
     private void readFile(SelectionKey key, Path pathFile, FileInfo fileInfo) {
         logger.info("start download file");
         try {
@@ -182,6 +192,10 @@ public class ClientConnect implements Runnable{
         }
     }
 
+    /**
+     *
+     * @param path
+     */
     private void  writeFile(Path path) {
         logger.info("start sending " + path);
         try {
@@ -207,6 +221,10 @@ public class ClientConnect implements Runnable{
         logger.info("end sending " + path);
     }
 
+    /**
+     *
+     * @param key
+     */
     private void downloadFile(SelectionKey key) {
         try {
             String filename = serverController.getSelected();
@@ -238,6 +256,10 @@ public class ClientConnect implements Runnable{
         }
     }
 
+    /**
+     *
+     * @param command
+     */
     private void processingCommand(String command) {
         logger.info(command);
         //warning about fail
@@ -284,6 +306,10 @@ public class ClientConnect implements Runnable{
         }
     }
 
+    /**
+     *
+     * @param b
+     */
     private void convertData(byte[] b) {
         try {
             ByteArrayInputStream bais = new ByteArrayInputStream(b);
@@ -302,6 +328,10 @@ public class ClientConnect implements Runnable{
         }
     }
 
+    /**
+     *
+     * @param ob
+     */
     private void castFileInfo(Object ob) {
         List<FileInfo> fl = new ArrayList<>();
         for (Object o : (ArrayList) ob) {

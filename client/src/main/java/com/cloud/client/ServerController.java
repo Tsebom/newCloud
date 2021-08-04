@@ -1,6 +1,6 @@
 package com.cloud.client;
 
-import com.cloud.server.FileInfo;
+import com.cloud.common.FileInfo;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -132,11 +132,19 @@ public class ServerController implements Initializable {
         return isRegistration;
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void signUp(ActionEvent actionEvent) {
         regOrAuth(isTryRegistration);
         setTitle("Cloud Registration");
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void registration(ActionEvent actionEvent) {
         connect = ClientConnect.getInstance();
         connect.setNameUser(loginField.getText());
@@ -145,6 +153,10 @@ public class ServerController implements Initializable {
                 .concat(passwordField.getText().trim()));
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void signIn(ActionEvent actionEvent) {
         connect = ClientConnect.getInstance();
         connect.setNameUser(loginField.getText());
@@ -153,12 +165,20 @@ public class ServerController implements Initializable {
                 .concat(passwordField.getText().trim()));
     }
 
+    /**
+     *
+     * @param title
+     */
     public void setTitle(String title) {
         Platform.runLater(() -> {
             stage.setTitle(title);
         });
     }
 
+    /**
+     *
+     * @param list
+     */
     public void updateFileTable(List<FileInfo> list) {
             listFile = list;
             fileTable.getItems().clear();
@@ -166,6 +186,10 @@ public class ServerController implements Initializable {
             fileTable.sort();
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void createNewFolderOrFile(ActionEvent actionEvent) {
         String name = JOptionPane.showInputDialog("Type the name folder");
         if (name != null && !name.equals("")) {
@@ -178,6 +202,10 @@ public class ServerController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param mouseEvent
+     */
     public void selectDirectory(MouseEvent mouseEvent) {
         if (mouseEvent.getClickCount() == 1) {
             selected = Paths.get(((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()).toString();
@@ -188,10 +216,18 @@ public class ServerController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void toParentPathAction(ActionEvent actionEvent) {
         connect.getQueue().add("moveBack");
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void deleteFile(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFileForDelete = selected;
@@ -211,6 +247,10 @@ public class ServerController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void renameFile(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFileForDelete = selected;
@@ -233,6 +273,10 @@ public class ServerController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void copyFile(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFileForCopy = selected;
@@ -246,10 +290,18 @@ public class ServerController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void pasteFile(ActionEvent actionEvent) {
         connect.getQueue().add("past");
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void cutFile(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFileForCut = selected;
@@ -263,6 +315,10 @@ public class ServerController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param isRegistration
+     */
     protected void switchServerWindow(boolean isRegistration) {
         auth_box.setVisible(!isRegistration);
         auth_box.setManaged(!isRegistration);
@@ -271,6 +327,10 @@ public class ServerController implements Initializable {
         this.isRegistration = !isRegistration;
     }
 
+    /**
+     *
+     * @param isTryRegistration
+     */
     private void regOrAuth (boolean isTryRegistration) {
         sign_in.setVisible(isTryRegistration);
         sign_in.setManaged(isTryRegistration);
@@ -283,6 +343,11 @@ public class ServerController implements Initializable {
         this.isTryRegistration = !isTryRegistration;
     }
 
+    /**
+     *
+     * @param nameFile
+     * @return
+     */
     private boolean isNameFile(String nameFile) {
         for (FileInfo f : listFile) {
             if (f.getFilename().equals(nameFile)) {

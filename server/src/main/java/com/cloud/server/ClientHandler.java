@@ -1,5 +1,7 @@
 package com.cloud.server;
 
+import com.cloud.common.FileInfo;
+
 import java.io.*;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;

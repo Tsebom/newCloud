@@ -1,6 +1,6 @@
 package com.cloud.client;
 
-import com.cloud.server.FileInfo;
+import com.cloud.common.FileInfo;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
@@ -80,7 +80,7 @@ public class ClientController implements Initializable {
 
         fillDiskList();
 
-        updateFileTable(root);
+        updateFileTable(root.toAbsolutePath().getRoot());
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
@@ -90,11 +90,19 @@ public class ClientController implements Initializable {
         return selectedFileForUpload;
     }
 
+    /**
+     *
+     * @param warning -
+     */
     public static void alertWarning(String warning) {
         Alert alert = new Alert(Alert.AlertType.WARNING, warning, ButtonType.OK);
         alert.showAndWait();
     }
 
+    /**
+     *
+     * @param path -
+     */
     public void updateFileTable (Path path) {
         try {
             pathField.setText(path.normalize().toAbsolutePath().toString());
@@ -107,6 +115,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void exitAction(ActionEvent actionEvent) {
         if (connect == null) {
             connect = ClientConnect.getInstance();
@@ -114,7 +126,10 @@ public class ClientController implements Initializable {
         connect.getQueue().add("disconnect");
     }
 
-
+    /**
+     *
+     * @param actionEvent -
+     */
     public void toParentPathAction(ActionEvent actionEvent) {
         Path parent = Paths.get(pathField.getText()).getParent();
         if (parent != null) {
@@ -122,11 +137,19 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void selectDisk(ActionEvent actionEvent) {
         ComboBox<String> disk = (ComboBox<String>) actionEvent.getSource();
         updateFileTable(Paths.get(disk.getSelectionModel().getSelectedItem()));
     }
 
+    /**
+     *
+     * @param mouseEvent -
+     */
     public void selectDirectoryOrFile(MouseEvent mouseEvent) {
         FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
         if (mouseEvent.getClickCount() == 1) {
@@ -144,6 +167,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void copyFileOrDir(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFilePathForCopy = selected;
@@ -154,6 +181,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void cutFileOrDir(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFilePathForCut = selected;
@@ -164,6 +195,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void pasteFileOrDir(ActionEvent actionEvent) {
         Path path = Paths.get(pathField.getText());
 
@@ -181,6 +216,11 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
+    /**
+     *
+     * @param source -
+     * @param target -
+     */
     private void pastCopyFileOrDir(Path source, Path target) {
         if (!Files.isDirectory(source)) {
             copyFile(source, target.resolve(source.getFileName()));
@@ -189,6 +229,11 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param source -
+     * @param target -
+     */
     private void copyFile(Path source, Path target) {
         try {
             if (Files.exists(target)) {
@@ -208,6 +253,11 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param source -
+     * @param target -
+     */
     private void copyDirectory(Path source, Path target) {
         try {
             target = target.resolve(source.getFileName());
@@ -238,6 +288,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void deleteCommand(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFilePathForDelete = selected;
@@ -250,6 +304,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param target -
+     */
     public void deleteFileOrDir(Path target) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure",
                 ButtonType.YES, ButtonType.CANCEL);
@@ -268,6 +326,10 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
+    /**
+     *
+     * @param path -
+     */
     private void deleteDirectory(Path path) {
         try {
             List<Path> list = walkDirectory(path);
@@ -300,6 +362,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void renameFile(ActionEvent actionEvent) {
         if (selected != null) {
             selectedFilePathForRename = selected;
@@ -318,6 +384,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void createNewFolderOrFile(ActionEvent actionEvent) {
         String name = JOptionPane.showInputDialog("Type a name folder");
         if (name != null && !name.equals("")) {
@@ -335,6 +405,9 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
+    /**
+     *
+     */
     private void fillDiskList() {
         disks.getItems().clear();
         for (Path path : FileSystems.getDefault().getRootDirectories()) {
@@ -343,6 +416,10 @@ public class ClientController implements Initializable {
         disks.getSelectionModel().select(0);
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void uploadFile(ActionEvent actionEvent) {
         if (selected != null) {
             FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
@@ -358,6 +435,10 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void downloadFile(ActionEvent actionEvent) {
         if (connect == null) {
             connect = ClientConnect.getInstance();
@@ -368,8 +449,8 @@ public class ClientController implements Initializable {
 
     /**
      *
-     * @param path
-     * @return
+     * @param path -
+     * @return -
      */
     private List<Path> walkDirectory(Path path) {
         List<Path> list = new ArrayList<>();
@@ -388,6 +469,12 @@ public class ClientController implements Initializable {
         return list;
     }
 
+    /**
+     *
+     * @param path -
+     * @param source -
+     * @return -
+     */
     private Path truncationPath(Path path, Path source) {
         return  path.subpath(source.getNameCount(), path.getNameCount());
     }
