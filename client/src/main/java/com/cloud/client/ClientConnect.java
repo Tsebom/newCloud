@@ -1,22 +1,25 @@
 package com.cloud.client;
 
-import com.cloud.server.FileInfo;
+import com.cloud.common.FileInfo;
 import javafx.application.Platform;
 
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+/**
+ *
+ */
 public class ClientConnect implements Runnable{
     private static ClientConnect instance;
 
@@ -25,12 +28,15 @@ public class ClientConnect implements Runnable{
 
     private static final int PORT = 5679;
     private static final String IP_ADRESS = "localhost";
+    private static final int BUFFER_SIZE = 1460;
 
     private Selector selector;
+    private SelectionKey key;
     private SocketChannel channel;
     private SocketAddress serverAddress;
 
     private ServerController serverController;
+    private ClientController clientController;
 
     private Queue<String> queue = new LinkedBlockingQueue<>();
     private boolean breakClientConnect;
@@ -38,14 +44,13 @@ public class ClientConnect implements Runnable{
 
     private ClientConnect() {
         instance = this;
-        breakClientConnect = false;
         logger.info("client instance created");
         try {
             logmanager.readConfiguration(new FileInputStream("client/logging.properties"));
             selector = Selector.open();
             channel = SocketChannel.open();
             channel.configureBlocking(false);
-            channel.register(selector, SelectionKey.OP_CONNECT, ByteBuffer.allocate(1460));
+            key= channel.register(selector, SelectionKey.OP_CONNECT, ByteBuffer.allocate(BUFFER_SIZE));
             channel.connect(new InetSocketAddress(IP_ADRESS, PORT));
             serverAddress = channel.getRemoteAddress();
         } catch (ClosedChannelException e) {
@@ -60,31 +65,38 @@ public class ClientConnect implements Runnable{
         try {
             while (true) {
                 if (breakClientConnect) {
+                    channel.close();
+                    selector.close();
+                    logger.info("break");
                     break;
                 }
-                selector.select();
-                Set<SelectionKey> keys = selector.selectedKeys();
-                Iterator<SelectionKey> iterator = keys.iterator();
-                while (iterator.hasNext()) {
-                    SelectionKey key = iterator.next();
-                    if (key.isConnectable()) {
-                        channel.finishConnect();
-                        logger.info("Connection to the server");
-                        key.interestOps(SelectionKey.OP_WRITE);
-                    }
-                    if (key.isWritable()) {
-                        String line = queue.poll();
-                        if (line != null) {
-                            logger.info("send command to the server: " + line);
-                            channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
-                            key.interestOps(SelectionKey.OP_READ);
+                if (selector.isOpen()) {
+                    selector.select();
+                    Set<SelectionKey> keys = selector.selectedKeys();
+                    Iterator<SelectionKey> iterator = keys.iterator();
+                    while (iterator.hasNext()) {
+                        SelectionKey key = iterator.next();
+                        if (key.isConnectable()) {
+                            channel.finishConnect();
+                            logger.info("Connection to the server");
+                            key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
                         }
+                        if (key.isWritable()) {
+                            String line = queue.poll();
+                            if (line != null && line.equals("download")) {
+                                downloadFile(key);
+                                continue;
+                            }
+                            if (line != null) {
+                                logger.info("send command to the server: " + line);
+                                channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
+                            }
+                        }
+                        if (key.isReadable()) {
+                            read(key);
+                        }
+                        iterator.remove();
                     }
-                    if (key.isReadable()) {
-                        read(key);
-                        key.interestOps(SelectionKey.OP_WRITE);
-                    }
-                    iterator.remove();
                 }
             }
         } catch (IOException e) {
@@ -107,11 +119,18 @@ public class ClientConnect implements Runnable{
         this.serverController = serverController;
     }
 
+    public void setClientController(ClientController clientController) {
+        this.clientController = clientController;
+    }
 
     public void setNameUser(String nameUser) {
         this.nameUser = nameUser;
     }
 
+    /**
+     *
+     * @param key
+     */
     public void read(SelectionKey key) {
         logger.info("the start reading data from the channel: " + serverAddress);
         ByteBuffer buf = (ByteBuffer) key.attachment();
@@ -129,7 +148,6 @@ public class ClientConnect implements Runnable{
             }
             buf.clear();
 
-            //crutch
             byte[] b = new byte[list.size()];
             for (int i = 0; i < list.size(); i++) {
                 b[i] = list.get(i);
@@ -142,6 +160,106 @@ public class ClientConnect implements Runnable{
         }
     }
 
+    /**
+     *
+     * @param key
+     * @param pathFile
+     * @param fileInfo
+     */
+    private void readFile(SelectionKey key, Path pathFile, FileInfo fileInfo) {
+        logger.info("start download file");
+        try {
+            RandomAccessFile file = new RandomAccessFile(pathFile.toString(), "rw");
+            FileChannel fileChannel = file.getChannel();
+            ByteBuffer buff = (ByteBuffer) key.attachment();
+            long size = 0L;
+            buff.clear();
+            while (size < fileInfo.getSize()) {
+
+                size += channel.read(buff);
+
+                buff.flip();
+                while (buff.hasRemaining()) {
+                    fileChannel.write(buff);
+                }
+                buff.compact();
+            }
+            clientController.updateFileTable(pathFile.getParent());
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     *
+     * @param path
+     */
+    private void  writeFile(Path path) {
+        logger.info("start sending " + path);
+        try {
+            RandomAccessFile file = new RandomAccessFile(path.toString(), "r");
+            FileChannel fileChannel = file.getChannel();
+            ByteBuffer buff = (ByteBuffer) key.attachment();
+
+            int i = 0;
+            buff.clear();
+            while (i != -1) {
+
+                i = fileChannel.read(buff);
+
+                buff.flip();
+                channel.write(buff);
+                buff.compact();
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        logger.info("end sending " + path);
+    }
+
+    /**
+     *
+     * @param key
+     */
+    private void downloadFile(SelectionKey key) {
+        try {
+            String filename = serverController.getSelected();
+            if (filename == null) {
+                Platform.runLater(() -> ClientController.
+                        alertWarning("No one file was selected"));
+                return;
+            }
+            for (FileInfo f: serverController.getListFile()) {
+                if (f.getFilename().equals(filename)) {
+                    FileInfo fileInfo = f;
+                    Path pathFile = Paths.get(clientController.pathField.getText()).resolve(fileInfo.getFilename());
+                    if (!Files.exists(pathFile)) {
+                        String command = "download " + fileInfo.getFilename();
+                        channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
+                        Files.createFile(pathFile);
+                        readFile(key, pathFile, fileInfo);
+                    } else {
+                        Platform.runLater(() -> ClientController.alertWarning("This file is exist"));
+                    }
+                    serverController.setSelected(null);
+                    return;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            serverController.setSelected(null);
+        }
+    }
+
+    /**
+     *
+     * @param command
+     */
     private void processingCommand(String command) {
         logger.info(command);
         //warning about fail
@@ -177,18 +295,26 @@ public class ClientConnect implements Runnable{
             serverController.switchServerWindow(serverController.isRegistration());
             serverController.setTitle("Cloud");
             queue.add("getPathField");
-        } else if (command.equals("disconnect")) {
+        } else if (command.equals("ready_for_get_file")) {
+            writeFile(clientController.getSelectedFileForUpload());
+        }
+
+        if (command.equals("disconnect")) {
+            logger.info("disconnect confirmed");
             breakClientConnect = true;
-            Platform.exit();
+            Platform.runLater(() -> Platform.exit());
         }
     }
 
+    /**
+     *
+     * @param b
+     */
     private void convertData(byte[] b) {
         try {
             ByteArrayInputStream bais = new ByteArrayInputStream(b);
             ObjectInputStream ois = new ObjectInputStream(bais);
             Object ob = ois.readObject();
-
             if (ob instanceof String) {
                 processingCommand((String) ob);
             }
@@ -202,6 +328,10 @@ public class ClientConnect implements Runnable{
         }
     }
 
+    /**
+     *
+     * @param ob
+     */
     private void castFileInfo(Object ob) {
         List<FileInfo> fl = new ArrayList<>();
         for (Object o : (ArrayList) ob) {

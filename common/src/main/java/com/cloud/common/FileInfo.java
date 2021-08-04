@@ -1,4 +1,4 @@
-package com.cloud.server;
+package com.cloud.common;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -7,6 +7,9 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
+/**
+ * The class for storing information about file
+ */
 public class FileInfo implements Serializable {
     private String fileName;
     private long size;

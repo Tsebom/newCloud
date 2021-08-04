@@ -1,6 +1,6 @@
 package com.cloud.client;
 
-import com.cloud.server.FileInfo;
+import com.cloud.common.FileInfo;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -13,13 +13,11 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import javax.swing.*;
-import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.logging.Logger;
 
@@ -31,7 +29,13 @@ public class ServerController implements Initializable {
     private static Stage stage;
 
     private ClientConnect connect;
-    private Path root;
+
+    List<FileInfo> listFile;
+    private String selected;
+    private String selectedFileForCopy;
+    private String selectedFileForCut;
+    private String selectedFileForRename;
+    private String selectedFileForDelete;
 
     @FXML
     public TextField pathField;
@@ -96,6 +100,28 @@ public class ServerController implements Initializable {
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
+
+        Platform.runLater(() -> {
+            stage.setOnCloseRequest((event) -> {
+                if (connect == null) {
+                    Platform.exit();
+                } else if (connect != null) {
+                    connect.getQueue().add("disconnect");
+                }
+            });
+        });
+    }
+
+    public List<FileInfo> getListFile() {
+        return listFile;
+    }
+
+    public String getSelected() {
+        return selected;
+    }
+
+    public void setSelected(String selected) {
+        this.selected = selected;
     }
 
     public static void setStage(Stage stage) {
@@ -106,11 +132,19 @@ public class ServerController implements Initializable {
         return isRegistration;
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void signUp(ActionEvent actionEvent) {
         regOrAuth(isTryRegistration);
         setTitle("Cloud Registration");
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void registration(ActionEvent actionEvent) {
         connect = ClientConnect.getInstance();
         connect.setNameUser(loginField.getText());
@@ -119,6 +153,10 @@ public class ServerController implements Initializable {
                 .concat(passwordField.getText().trim()));
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void signIn(ActionEvent actionEvent) {
         connect = ClientConnect.getInstance();
         connect.setNameUser(loginField.getText());
@@ -127,38 +165,31 @@ public class ServerController implements Initializable {
                 .concat(passwordField.getText().trim()));
     }
 
+    /**
+     *
+     * @param title
+     */
     public void setTitle(String title) {
         Platform.runLater(() -> {
             stage.setTitle(title);
         });
     }
 
-    protected void switchServerWindow(boolean isRegistration) {
-        auth_box.setVisible(!isRegistration);
-        auth_box.setManaged(!isRegistration);
-        manager_box.setVisible(isRegistration);
-        manager_box.setManaged(isRegistration);
-        this.isRegistration = !isRegistration;
-    }
-
+    /**
+     *
+     * @param list
+     */
     public void updateFileTable(List<FileInfo> list) {
+            listFile = list;
             fileTable.getItems().clear();
             fileTable.getItems().addAll(list);
             fileTable.sort();
     }
 
-    private void regOrAuth (boolean isTryRegistration) {
-        sign_in.setVisible(isTryRegistration);
-        sign_in.setManaged(isTryRegistration);
-        sign_up.setVisible(isTryRegistration);
-        sign_up.setManaged(isTryRegistration);
-        registration.setVisible(!isTryRegistration);
-        registration.setManaged(!isTryRegistration);
-        back_sign_in.setVisible(!isTryRegistration);
-        back_sign_in.setManaged(!isTryRegistration);
-        this.isTryRegistration = !isTryRegistration;
-    }
-
+    /**
+     *
+     * @param actionEvent
+     */
     public void createNewFolderOrFile(ActionEvent actionEvent) {
         String name = JOptionPane.showInputDialog("Type the name folder");
         if (name != null && !name.equals("")) {
@@ -171,14 +202,158 @@ public class ServerController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param mouseEvent
+     */
     public void selectDirectory(MouseEvent mouseEvent) {
-        if (mouseEvent.getClickCount() == 2) {
-            connect.getQueue().add("doubleclick ".concat(
+        if (mouseEvent.getClickCount() == 1) {
+            selected = Paths.get(((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()).toString();
+        } else if (mouseEvent.getClickCount() == 2) {
+            connect.getQueue().add("moveTo ".concat(
                     ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename()));
+            selected = null;
         }
     }
 
+    /**
+     *
+     * @param actionEvent
+     */
     public void toParentPathAction(ActionEvent actionEvent) {
-        connect.getQueue().add("back");
+        connect.getQueue().add("moveBack");
+    }
+
+    /**
+     *
+     * @param actionEvent
+     */
+    public void deleteFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFileForDelete = selected;
+            selected = null;
+
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                    "You are going to delete " + selectedFileForDelete + " from server! You are sure?",
+                    ButtonType.YES, ButtonType.NO);
+            Optional<ButtonType> option = alert.showAndWait();
+            if (option.get() == ButtonType.YES) {
+                connect.getQueue().add("delete ".concat(selectedFileForDelete));
+            }
+            selectedFileForDelete = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
+        }
+    }
+
+    /**
+     *
+     * @param actionEvent
+     */
+    public void renameFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFileForDelete = selected;
+            selected = null;
+
+            String rename = JOptionPane.showInputDialog("Type the new name");
+            if (rename != null && !rename.equals("")) {
+                if (isNameFile(rename)) {
+                    Alert alert = new Alert(Alert.AlertType.WARNING,
+                            "The file's name already exist!" , ButtonType.CANCEL);
+                    alert.showAndWait();
+                } else {
+                    connect.getQueue().add("rename ".concat(selectedFileForRename + " " +rename));
+                }
+            }
+            selectedFileForRename = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
+        }
+    }
+
+    /**
+     *
+     * @param actionEvent
+     */
+    public void copyFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFileForCopy = selected;
+            selected = null;
+
+            connect.getQueue().add("copy ".concat(selectedFileForCopy));
+            selectedFileForCopy = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
+        }
+    }
+
+    /**
+     *
+     * @param actionEvent
+     */
+    public void pasteFile(ActionEvent actionEvent) {
+        connect.getQueue().add("past");
+    }
+
+    /**
+     *
+     * @param actionEvent
+     */
+    public void cutFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFileForCut = selected;
+            selected = null;
+
+            connect.getQueue().add("cut ".concat(selectedFileForCut));
+            selectedFileForCut = null;
+        } else {
+            Platform.runLater(() -> ClientController.
+                    alertWarning("No one file was selected"));
+        }
+    }
+
+    /**
+     *
+     * @param isRegistration
+     */
+    protected void switchServerWindow(boolean isRegistration) {
+        auth_box.setVisible(!isRegistration);
+        auth_box.setManaged(!isRegistration);
+        manager_box.setVisible(isRegistration);
+        manager_box.setManaged(isRegistration);
+        this.isRegistration = !isRegistration;
+    }
+
+    /**
+     *
+     * @param isTryRegistration
+     */
+    private void regOrAuth (boolean isTryRegistration) {
+        sign_in.setVisible(isTryRegistration);
+        sign_in.setManaged(isTryRegistration);
+        sign_up.setVisible(isTryRegistration);
+        sign_up.setManaged(isTryRegistration);
+        registration.setVisible(!isTryRegistration);
+        registration.setManaged(!isTryRegistration);
+        back_sign_in.setVisible(!isTryRegistration);
+        back_sign_in.setManaged(!isTryRegistration);
+        this.isTryRegistration = !isTryRegistration;
+    }
+
+    /**
+     *
+     * @param nameFile
+     * @return
+     */
+    private boolean isNameFile(String nameFile) {
+        for (FileInfo f : listFile) {
+            if (f.getFilename().equals(nameFile)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

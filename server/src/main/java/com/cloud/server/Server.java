@@ -18,6 +18,9 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+/**
+ * The Server class implements interact with clients
+ */
 public class Server {
     protected static final Logger logger = Logger.getLogger(Server.class.getName());
     private static final LogManager logmanager = LogManager.getLogManager();
@@ -28,6 +31,7 @@ public class Server {
 
     private static final int PORT = 5679;
     private static final String IP_ADRESS = "localhost";
+    private static final int BUFFER_SIZE = 1460;
     private static final int TIMEOUT = 3000;
 
     private ServerSocketChannel server;
@@ -55,7 +59,7 @@ public class Server {
             server.configureBlocking(false);
 
             selector = Selector.open();
-            server.register(selector, SelectionKey.OP_ACCEPT, ByteBuffer.allocate(1460));
+            server.register(selector, SelectionKey.OP_ACCEPT, ByteBuffer.allocate(BUFFER_SIZE));
             connectDataBase();
             logger.info("Server has started.");
             setAllPrepareStatement();
@@ -73,13 +77,15 @@ public class Server {
                         }
                         if (key.isReadable()) {
                             SocketAddress socket = ((SocketChannel) key.channel()).getRemoteAddress();
-                            if (mapAuthUser.containsKey(socket) && !processing.contains(socket)) {
+                            if (key.channel().isOpen() && mapAuthUser.containsKey(socket)
+                                    && !processing.contains(socket)) {
                                 logger.info("readable event from " + socket);
                                 processing.add(socket);
                                 service.execute(() -> {
                                     mapAuthUser.get(socket).read();
                                 });
-                            } else if (mapRequestAuthUser.containsKey(socket) && !processing.contains(socket)) {
+                            } else if (key.channel().isOpen() && mapRequestAuthUser.containsKey(socket)
+                                    && !processing.contains(socket)) {
                                 processing.add(socket);
                                 service.execute(() -> {
                                     mapRequestAuthUser.get(socket).read();
@@ -145,8 +151,9 @@ public class Server {
     private void connectDataBase(){
         try {
             Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection("jdbc:sqlite:RegBase.db");
+            connection = DriverManager.getConnection("jdbc:sqlite:server/src/main/resources/RegBase.db");
             statement = connection.createStatement();
+            logger.info(statement.toString());
             logger.info("server has connected to RegBase");
         } catch (ClassNotFoundException e) {
             logger.log(Level.SEVERE, "class \"org.sqlite.JDBC\" hasn't be find", e);
