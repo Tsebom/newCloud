@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.nezhdanov</groupId>
-    <artifactId>client</artifactId>
+    <artifactId>server</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -19,6 +19,12 @@
             <artifactId>common</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.34.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -30,10 +36,16 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>ClientBuilder</mainClass>
+                            <mainClass>StartServer</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

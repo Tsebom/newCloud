@@ -1,6 +1,6 @@
 package com.cloud.client;
 
-import javafx.application.Platform;
+import com.cloud.common.FileInfo;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
@@ -9,7 +9,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseEvent;
 
-
 import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
@@ -17,13 +16,13 @@ import java.net.URL;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.ResourceBundle;
+import java.util.*;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class ClientController implements Initializable {
+    private Logger logger = ClientConnect.logger;
+
     @FXML
     public TextField pathField;
     @FXML
@@ -31,11 +30,18 @@ public class ClientController implements Initializable {
     @FXML
     TableView fileTable;
 
+    private ClientConnect connect;
+    private Path root;
+    private Path selected;
+    private Path selectedFilePathForDelete;
     private Path selectedFilePathForCopy;
+    private Path selectedFilePathForCut;
+    private Path selectedFileForUpload;
+    private Path selectedFilePathForRename;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        Path path = Paths.get(".");
+        root = Paths.get(".");
 
         TableColumn<FileInfo, String> nameFileColumn = new TableColumn<>("Name");
         nameFileColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().getFilename()));
@@ -57,37 +63,46 @@ public class ClientController implements Initializable {
             return new TableCell<FileInfo, Long>() {
                 @Override
                 protected void updateItem(Long item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (item == null || empty) {
-                        setText(null);
-                        setStyle("");
-                    } else {
-                        String text = String.format("%,d bytes", item);
-                        if (item == -1L) {
-                            text = "[DIR]";
-                        }
-                        setText(text);
+                super.updateItem(item, empty);
+                if (item == null || empty) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    String text = String.format("%,d bytes", item);
+                    if (item == -1L) {
+                        text = "[DIR]";
                     }
+                    setText(text);
+                }
                 }
             };
         });
 
         fillDiskList();
 
-        updateFileTable(path);
+        updateFileTable(root.toAbsolutePath().getRoot());
 
         fileTable.getSortOrder().add(sizeFileColumn);
         fileTable.getSortOrder().add(nameFileColumn);
     }
 
-    private void fillDiskList() {
-        disks.getItems().clear();
-        for (Path path : FileSystems.getDefault().getRootDirectories()) {
-            disks.getItems().add(path.toString());
-        }
-        disks.getSelectionModel().select(0);
+    public Path getSelectedFileForUpload() {
+        return selectedFileForUpload;
     }
 
+    /**
+     *
+     * @param warning -
+     */
+    public static void alertWarning(String warning) {
+        Alert alert = new Alert(Alert.AlertType.WARNING, warning, ButtonType.OK);
+        alert.showAndWait();
+    }
+
+    /**
+     *
+     * @param path -
+     */
     public void updateFileTable (Path path) {
         try {
             pathField.setText(path.normalize().toAbsolutePath().toString());
@@ -100,11 +115,21 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void exitAction(ActionEvent actionEvent) {
-        Platform.exit();
+        if (connect == null) {
+            connect = ClientConnect.getInstance();
+        }
+        connect.getQueue().add("disconnect");
     }
 
-
+    /**
+     *
+     * @param actionEvent -
+     */
     public void toParentPathAction(ActionEvent actionEvent) {
         Path parent = Paths.get(pathField.getText()).getParent();
         if (parent != null) {
@@ -112,80 +137,188 @@ public class ClientController implements Initializable {
         }
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
     public void selectDisk(ActionEvent actionEvent) {
         ComboBox<String> disk = (ComboBox<String>) actionEvent.getSource();
         updateFileTable(Paths.get(disk.getSelectionModel().getSelectedItem()));
     }
 
-    public void selectDirectory(MouseEvent mouseEvent) {
-        if (mouseEvent.getClickCount() == 2) {
-            Path path = Paths.get(pathField.getText()).resolve(
-                    ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-            if (Files.isDirectory(path)) {
-                updateFileTable(path);
+    /**
+     *
+     * @param mouseEvent -
+     */
+    public void selectDirectoryOrFile(MouseEvent mouseEvent) {
+        FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
+        if (mouseEvent.getClickCount() == 1) {
+            if (fileInfo != null) {
+                selected = Paths.get(pathField.getText()).resolve(fileInfo.getFilename());
+            }
+        } else if (mouseEvent.getClickCount() == 2) {
+            if (fileInfo != null) {
+                Path path = Paths.get(pathField.getText()).resolve((fileInfo).getFilename());
+                if (Files.isDirectory(path)) {
+                    updateFileTable(path);
+                }
+                selected = null;
             }
         }
-
     }
 
-    public void copyFile(ActionEvent actionEvent) {
-        selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
+    /**
+     *
+     * @param actionEvent -
+     */
+    public void copyFileOrDir(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFilePathForCopy = selected;
+            selected = null;
+            logger.info(selectedFilePathForCopy.toString());
+        } else {
+            alertWarning("No one file was selected");
+        }
     }
 
-    public short pasteFile(ActionEvent actionEvent) {
+    /**
+     *
+     * @param actionEvent -
+     */
+    public void cutFileOrDir(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFilePathForCut = selected;
+            selected = null;
+            logger.info(selectedFilePathForCut.toString());
+        } else {
+            alertWarning("No one file was selected");
+        }
+    }
+
+    /**
+     *
+     * @param actionEvent -
+     */
+    public void pasteFileOrDir(ActionEvent actionEvent) {
         Path path = Paths.get(pathField.getText());
-        if (!Files.isDirectory(selectedFilePathForCopy)) {
-            try {
-                //if file is exist
-                if (Files.exists(path.resolve(selectedFilePathForCopy.getFileName()))) {
-                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                            "This file is exist. Do you want to continue", ButtonType.APPLY, ButtonType.CANCEL);
-                    Optional<ButtonType> option = alert.showAndWait();
-                    if (option.get() == ButtonType.APPLY) {
-                        Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()),
-                                StandardCopyOption.REPLACE_EXISTING);
-                        return 0;
-                    }
-                    if (option.get() == ButtonType.CANCEL) {
-                        return -1;
-                    }
-                }
-                Files.copy(selectedFilePathForCopy, path.resolve(selectedFilePathForCopy.getFileName()));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        updateFileTable(Paths.get(pathField.getText()));
-        return 1;
-    }
 
-    public void moveFile(ActionEvent actionEvent) {
-        if (!pathField.getText().startsWith(selectedFilePathForCopy.toString())) {
-            short i = pasteFile(actionEvent);
-            try {
-                if (i >= 0) {
-                    Files.delete(selectedFilePathForCopy);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        if (selectedFilePathForCopy != null && selectedFilePathForCut == null) {
+            pastCopyFileOrDir(selectedFilePathForCopy, path);
+            selectedFilePathForCopy = null;
+        } else if (selectedFilePathForCopy == null && selectedFilePathForCut != null) {
+            pastCopyFileOrDir(selectedFilePathForCut, path);
+            deleteFileOrDir(selectedFilePathForCut);
+            selectedFilePathForCut = null;
+        } else {
+            alertWarning("No one file was selected");
             return;
         }
-        Alert alert = new Alert(Alert.AlertType.WARNING, "You can't made move command to the folder "
-                .concat(selectedFilePathForCopy.getFileName().toString()), ButtonType.OK);
-        alert.showAndWait();
+        updateFileTable(Paths.get(pathField.getText()));
     }
 
-    public void deleteFile(ActionEvent actionEvent) {
-        selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure", ButtonType.YES,
-                ButtonType.CANCEL);
+    /**
+     *
+     * @param source -
+     * @param target -
+     */
+    private void pastCopyFileOrDir(Path source, Path target) {
+        if (!Files.isDirectory(source)) {
+            copyFile(source, target.resolve(source.getFileName()));
+        }else if (Files.isDirectory(source)) {
+            copyDirectory(source, target);
+        }
+    }
+
+    /**
+     *
+     * @param source -
+     * @param target -
+     */
+    private void copyFile(Path source, Path target) {
+        try {
+            if (Files.exists(target)) {
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                        "This file is exist. Do you want to continue",
+                        ButtonType.YES, ButtonType.NO);
+                Optional<ButtonType> option = alert.showAndWait();
+                if (option.get() == ButtonType.YES) {
+                    Files.copy(source, target,
+                            StandardCopyOption.REPLACE_EXISTING);
+                }
+            } else {
+                Files.copy(source, target);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     *
+     * @param source -
+     * @param target -
+     */
+    private void copyDirectory(Path source, Path target) {
+        try {
+            target = target.resolve(source.getFileName());
+            if (!Files.exists(target)) {
+                Files.createDirectory(target);
+            }
+            List<Path> list = walkDirectory(source);
+            logger.info(list.toString());
+            if (list.isEmpty()) {
+                return;
+            }
+            Collections.sort(list);
+
+            for (Path p : list) {
+                Path s = source.resolve(p);
+                Path t = target.resolve(p);
+                if (Files.isDirectory(s)) {
+                    if (!Files.exists(t)) {
+                        Files.createDirectory(t);
+                    }
+                } else if (!Files.isDirectory(s)) {
+                    logger.info(target.toString());
+                    copyFile(s, t);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     *
+     * @param actionEvent -
+     */
+    public void deleteCommand(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFilePathForDelete = selected;
+            selected = null;
+            deleteFileOrDir(selectedFilePathForDelete);
+            selectedFilePathForDelete = null;
+        } else {
+            alertWarning("No one file was selected");
+            return;
+        }
+    }
+
+    /**
+     *
+     * @param target -
+     */
+    public void deleteFileOrDir(Path target) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "You are sure",
+                ButtonType.YES, ButtonType.CANCEL);
         Optional<ButtonType> option = alert.showAndWait();
         if (option.get() == ButtonType.YES) {
             try {
-                Files.delete(selectedFilePathForCopy);
+                if (!Files.isDirectory(target)) {
+                    Files.delete(target);
+                } else if (Files.isDirectory(target)) {
+                    deleteDirectory(target);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -193,20 +326,70 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
-    public void renameFile(ActionEvent actionEvent) {
-        selectedFilePathForCopy = Paths.get(pathField.getText()).resolve(
-                ((FileInfo)fileTable.getSelectionModel().getSelectedItem()).getFilename());
-        String rename = JOptionPane.showInputDialog("Type the new name");
-        File currentName = new File(selectedFilePathForCopy.toString());
-        File newName = new File(selectedFilePathForCopy.getParent().resolve(rename).toString());
-        if (rename != null && !rename.equals("")) {
-            currentName.renameTo(newName);
+    /**
+     *
+     * @param path -
+     */
+    private void deleteDirectory(Path path) {
+        try {
+            List<Path> list = walkDirectory(path);
+
+            if (!list.isEmpty()) {
+                Collections.sort(list);
+                Collections.reverse(list);
+            } else {
+                Files.delete(path);
+                return;
+            }
+
+            while (!list.isEmpty()) {
+                Iterator<Path> iterator = list.iterator();
+                while (iterator.hasNext()) {
+                    Path p = iterator.next();
+                    Path t = path.resolve(p);
+                    if (!Files.isDirectory(t)) {
+                        Files.delete(t);
+                    } else if (Files.isDirectory(t) && walkDirectory(t).isEmpty()) {
+                        Files.delete(t);
+                    }
+                    iterator.remove();
+                    list.remove(p);
+                }
+            }
+            Files.delete(path);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        updateFileTable(Paths.get(pathField.getText()));
     }
 
+    /**
+     *
+     * @param actionEvent -
+     */
+    public void renameFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            selectedFilePathForRename = selected;
+            selected = null;
+
+            String rename = JOptionPane.showInputDialog("Type a new name of the file");
+            File currentName = new File(selectedFilePathForRename.toString());
+            File newName = new File(selectedFilePathForRename.getParent().resolve(rename).toString());
+            if (rename != null && !rename.equals("")) {
+                currentName.renameTo(newName);
+            }
+            selectedFilePathForRename = null;
+            updateFileTable(Paths.get(pathField.getText()));
+        } else {
+            alertWarning("No one file was selected");
+        }
+    }
+
+    /**
+     *
+     * @param actionEvent -
+     */
     public void createNewFolderOrFile(ActionEvent actionEvent) {
-        String name = JOptionPane.showInputDialog("Type the name folder");
+        String name = JOptionPane.showInputDialog("Type a name folder");
         if (name != null && !name.equals("")) {
             try {
                 if (name.contains(".")) {
@@ -222,13 +405,61 @@ public class ClientController implements Initializable {
         updateFileTable(Paths.get(pathField.getText()));
     }
 
+    /**
+     *
+     */
+    private void fillDiskList() {
+        disks.getItems().clear();
+        for (Path path : FileSystems.getDefault().getRootDirectories()) {
+            disks.getItems().add(path.toString());
+        }
+        disks.getSelectionModel().select(0);
+    }
+
+    /**
+     *
+     * @param actionEvent -
+     */
+    public void uploadFile(ActionEvent actionEvent) {
+        if (selected != null) {
+            FileInfo fileInfo = (FileInfo)fileTable.getSelectionModel().getSelectedItem();
+            selectedFileForUpload = selected;
+            selected = null;
+            if (connect == null) {
+                connect = ClientConnect.getInstance();
+                connect.setClientController(this);
+            }
+            connect.getQueue().add("upload " + fileInfo.getFilename() + " " + fileInfo.getSize());
+        } else {
+            alertWarning("No one file was selected");
+        }
+    }
+
+    /**
+     *
+     * @param actionEvent -
+     */
+    public void downloadFile(ActionEvent actionEvent) {
+        if (connect == null) {
+            connect = ClientConnect.getInstance();
+            connect.setClientController(this);
+        }
+        connect.getQueue().add("download");
+    }
+
+    /**
+     *
+     * @param path -
+     * @return -
+     */
     private List<Path> walkDirectory(Path path) {
         List<Path> list = new ArrayList<>();
         try {
             Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    list.addAll(Files.list(dir).collect(Collectors.toList()));
+                    list.addAll(Files.list(dir).map(p -> truncationPath(p, path)).
+                            filter(p -> p != null).collect(Collectors.toList()));
                     return FileVisitResult.CONTINUE;
                 }
             });
@@ -236,5 +467,15 @@ public class ClientController implements Initializable {
             e.printStackTrace();
         }
         return list;
+    }
+
+    /**
+     *
+     * @param path -
+     * @param source -
+     * @return -
+     */
+    private Path truncationPath(Path path, Path source) {
+        return  path.subpath(source.getNameCount(), path.getNameCount());
     }
 }
